@@ -9,6 +9,7 @@ from app.main import app
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 settings = get_settings()
@@ -46,14 +47,28 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 @pytest_asyncio.fixture(scope="session")
 async def setup_test_db() -> AsyncGenerator[None, None]:
     """Set up test database."""
+    # Import all models to ensure they are registered with Base.metadata
+    from app.infra.db.models import (
+        User, Position, MarketData, AnalysisLog, StrategyOutput, DecisionLog
+    )
+    
+    # For integration tests, we assume tables are already created by Alembic
+    # Check if tables exist before creating them
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        result = await conn.execute(text("""
+            SELECT COUNT(*) 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'users'
+        """))
+        tables_exist = result.scalar() > 0
+        
+        if not tables_exist:
+            # Only create tables if they don't exist (for unit tests)
+            await conn.run_sync(Base.metadata.create_all)
 
     yield
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
+    # Don't drop tables automatically - let Alembic handle schema management
     await test_engine.dispose()
 
 

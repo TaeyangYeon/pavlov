@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: PostgresDsn
-    DATABASE_TEST_URL: PostgresDsn | None = None
+    DATABASE_TEST_URL: PostgresDsn | None = None  # For test database
 
     # PostgreSQL
     POSTGRES_USER: str
