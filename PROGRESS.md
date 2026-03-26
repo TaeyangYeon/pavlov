@@ -8,7 +8,7 @@
 
 | Phase | 내용 | 진행률 |
 |---|---|---|
-| Phase 0: 기반 설계 | Step 1~4 | 1/4 |
+| Phase 0: 기반 설계 | Step 1~4 | 2/4 |
 | Phase 1: 데이터 레이어 | Step 5~7 | 0/3 |
 | Phase 2: 필터 및 AI | Step 8~10 | 0/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
@@ -16,7 +16,7 @@
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 1 / 27 Steps**
+**전체 진행률: 2 / 27 Steps**
 
 ---
 
@@ -68,15 +68,56 @@ feat: initialize pavlov project development environment (Step 1)
 
 #### 다음 Step 준비사항
 
-- Step 2: AI 프롬프트 설계 및 계약 정의
-  - Pydantic 입출력 스키마 작성
-  - 프롬프트 템플릿 초안 작성
+- ✅ Step 2: AI 프롬프트 설계 및 계약 정의 — Completed in Step 2
 
 ---
 
-### ⬜ Step 2 — AI 프롬프트 설계 및 계약 정의
+### ✅ Step 2 — AI 프롬프트 설계 및 계약 정의 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-26
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] Pydantic v2 입력 스키마 (AIPromptInput, StockIndicators, HeldPosition)
+- [x] Pydantic v2 출력 스키마 (AIPromptOutput, StockStrategy, TakeProfitLevel, StopLossLevel)
+- [x] ValidationResult 모델
+- [x] prompt_builder.py (순수 함수, 사이드이펙트 없음)
+- [x] validators.py (confidence 임계값, action 규칙 검증)
+- [x] AIClient 추상 클래스 + MockAIClient placeholder
+- [x] 전체 테스트 통과 (coverage ≥ 85%)
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 17 items
+
+tests/unit/ai/test_prompt_builder.py .....                               [ 29%]
+tests/unit/ai/test_schemas.py .......                                    [ 70%]
+tests/unit/ai/test_validators.py .....                                   [100%]
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.11.15-final-0 _______________
+
+Name                              Stmts   Miss  Cover   Missing
+---------------------------------------------------------------
+app/domain/ai/__init__.py             0      0   100%
+app/domain/ai/client.py               9      9     0%   1-44
+app/domain/ai/prompt_builder.py      16      0   100%
+app/domain/ai/schemas.py             42      0   100%
+app/domain/ai/validators.py          22      3    86%   32, 38, 42
+---------------------------------------------------------------
+TOTAL                                89     12    87%
+============================== 17 passed in 0.19s ===============================
+```
+
+#### 다음 Step 준비사항
+- Step 3: DB 스키마 설계
+  - AIPromptInput/Output 스키마 기반으로 market_data, strategy_output 테이블 설계
 
 ---
 
