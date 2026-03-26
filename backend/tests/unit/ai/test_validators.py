@@ -1,10 +1,9 @@
-import pytest
 from app.domain.ai.schemas import (
-    TakeProfitLevel,
-    StopLossLevel,
-    StockStrategy,
     AIPromptOutput,
-    ValidationResult
+    StockStrategy,
+    StopLossLevel,
+    TakeProfitLevel,
+    ValidationResult,
 )
 from app.domain.ai.validators import validate_ai_output
 
@@ -16,18 +15,13 @@ def test_valid_strategy_passes():
         action="buy",
         take_profit=[
             TakeProfitLevel(pct=5.0, sell_ratio=0.5),
-            TakeProfitLevel(pct=10.0, sell_ratio=0.5)
+            TakeProfitLevel(pct=10.0, sell_ratio=0.5),
         ],
-        stop_loss=[
-            StopLossLevel(pct=-3.0, sell_ratio=1.0)
-        ],
+        stop_loss=[StopLossLevel(pct=-3.0, sell_ratio=1.0)],
         rationale="Strong momentum",
-        confidence=0.8
+        confidence=0.8,
     )
-    output = AIPromptOutput(
-        market_summary="Market is bullish",
-        strategies=[strategy]
-    )
+    output = AIPromptOutput(market_summary="Market is bullish", strategies=[strategy])
     result = validate_ai_output(output)
     assert isinstance(result, ValidationResult)
     assert result.is_valid is True
@@ -39,17 +33,12 @@ def test_low_confidence_rejected():
     strategy = StockStrategy(
         ticker="AAPL",
         action="buy",
-        take_profit=[
-            TakeProfitLevel(pct=5.0, sell_ratio=1.0)
-        ],
+        take_profit=[TakeProfitLevel(pct=5.0, sell_ratio=1.0)],
         stop_loss=[],
         rationale="Low confidence trade",
-        confidence=0.2  # Below 0.3 threshold
+        confidence=0.2,  # Below 0.3 threshold
     )
-    output = AIPromptOutput(
-        market_summary="Market is uncertain",
-        strategies=[strategy]
-    )
+    output = AIPromptOutput(market_summary="Market is uncertain", strategies=[strategy])
     result = validate_ai_output(output)
     assert isinstance(result, ValidationResult)
     assert result.is_valid is False
@@ -63,16 +52,11 @@ def test_buy_without_take_profit_rejected():
         ticker="AAPL",
         action="buy",
         take_profit=[],  # Empty take_profit for buy action
-        stop_loss=[
-            StopLossLevel(pct=-3.0, sell_ratio=1.0)
-        ],
+        stop_loss=[StopLossLevel(pct=-3.0, sell_ratio=1.0)],
         rationale="Missing take profit",
-        confidence=0.8
+        confidence=0.8,
     )
-    output = AIPromptOutput(
-        market_summary="Market is bullish",
-        strategies=[strategy]
-    )
+    output = AIPromptOutput(market_summary="Market is bullish", strategies=[strategy])
     result = validate_ai_output(output)
     assert isinstance(result, ValidationResult)
     assert result.is_valid is False
@@ -87,15 +71,13 @@ def test_full_exit_with_stop_loss_rejected():
         action="full_exit",
         take_profit=[],
         stop_loss=[
-            StopLossLevel(pct=-3.0, sell_ratio=1.0)  # Should not have stop_loss for full_exit
+            # Should not have stop_loss for full_exit
+            StopLossLevel(pct=-3.0, sell_ratio=1.0)
         ],
         rationale="Full exit strategy",
-        confidence=0.8
+        confidence=0.8,
     )
-    output = AIPromptOutput(
-        market_summary="Market is bearish",
-        strategies=[strategy]
-    )
+    output = AIPromptOutput(market_summary="Market is bearish", strategies=[strategy])
     result = validate_ai_output(output)
     assert isinstance(result, ValidationResult)
     assert result.is_valid is False
@@ -112,13 +94,10 @@ def test_validation_returns_result_not_exception():
         take_profit=[],  # Invalid: buy without take_profit
         stop_loss=[],
         rationale="Invalid strategy",
-        confidence=0.1  # Invalid: too low confidence
+        confidence=0.1,  # Invalid: too low confidence
     )
-    output = AIPromptOutput(
-        market_summary="Test",
-        strategies=[strategy]
-    )
-    
+    output = AIPromptOutput(market_summary="Test", strategies=[strategy])
+
     # Should return ValidationResult, not raise exception
     result = validate_ai_output(output)
     assert isinstance(result, ValidationResult)

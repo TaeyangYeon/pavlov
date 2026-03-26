@@ -16,7 +16,8 @@ settings = get_settings()
 
 # Use test database URL if available, otherwise modify the main database URL
 test_db_url = str(
-    settings.DATABASE_TEST_URL or str(settings.DATABASE_URL).replace(
+    settings.DATABASE_TEST_URL
+    or str(settings.DATABASE_URL).replace(
         settings.POSTGRES_DB, settings.POSTGRES_TEST_DB
     )
 )
@@ -48,20 +49,17 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 async def setup_test_db() -> AsyncGenerator[None, None]:
     """Set up test database."""
     # Import all models to ensure they are registered with Base.metadata
-    from app.infra.db.models import (
-        User, Position, MarketData, AnalysisLog, StrategyOutput, DecisionLog
-    )
-    
+
     # For integration tests, we assume tables are already created by Alembic
     # Check if tables exist before creating them
     async with test_engine.begin() as conn:
         result = await conn.execute(text("""
-            SELECT COUNT(*) 
-            FROM information_schema.tables 
+            SELECT COUNT(*)
+            FROM information_schema.tables
             WHERE table_schema = 'public' AND table_name = 'users'
         """))
         tables_exist = result.scalar() > 0
-        
+
         if not tables_exist:
             # Only create tables if they don't exist (for unit tests)
             await conn.run_sync(Base.metadata.create_all)

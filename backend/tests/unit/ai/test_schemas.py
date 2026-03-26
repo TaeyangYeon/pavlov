@@ -1,15 +1,11 @@
 import pytest
-from pydantic import ValidationError
 from app.domain.ai.schemas import (
-    StockIndicators,
-    HeldPosition,
     AIPromptInput,
-    TakeProfitLevel,
-    StopLossLevel,
-    StockStrategy,
     AIPromptOutput,
-    ValidationResult
+    StockIndicators,
+    StockStrategy,
 )
+from pydantic import ValidationError
 
 
 def test_valid_stock_input_schema():
@@ -23,7 +19,7 @@ def test_valid_stock_input_schema():
         rsi_14=65.0,
         ma_20=145.0,
         ma_60=140.0,
-        atr_14=2.5
+        atr_14=2.5,
     )
     assert stock.ticker == "AAPL"
     assert stock.rsi_14 == 65.0
@@ -41,7 +37,7 @@ def test_invalid_rsi_out_of_range():
             rsi_14=105.0,  # Invalid: > 100
             ma_20=145.0,
             ma_60=140.0,
-            atr_14=2.5
+            atr_14=2.5,
         )
     assert "rsi_14" in str(exc_info.value)
 
@@ -55,7 +51,7 @@ def test_invalid_confidence_out_of_range():
             take_profit=[],
             stop_loss=[],
             rationale="Test rationale",
-            confidence=1.5  # Invalid: > 1.0
+            confidence=1.5,  # Invalid: > 1.0
         )
     assert "confidence" in str(exc_info.value)
 
@@ -70,7 +66,7 @@ def test_rationale_max_length():
             take_profit=[],
             stop_loss=[],
             rationale=long_rationale,
-            confidence=0.8
+            confidence=0.8,
         )
     assert "rationale" in str(exc_info.value)
 
@@ -79,10 +75,7 @@ def test_market_summary_max_length():
     """Test market_summary max length validation - max 200 chars"""
     long_summary = "x" * 201  # 201 characters
     with pytest.raises(ValidationError) as exc_info:
-        AIPromptOutput(
-            market_summary=long_summary,
-            strategies=[]
-        )
+        AIPromptOutput(market_summary=long_summary, strategies=[])
     assert "market_summary" in str(exc_info.value)
 
 
@@ -95,7 +88,7 @@ def test_action_literal_validation():
             take_profit=[],
             stop_loss=[],
             rationale="Test",
-            confidence=0.8
+            confidence=0.8,
         )
     assert "action" in str(exc_info.value)
 
@@ -106,6 +99,6 @@ def test_empty_filtered_stocks_allowed():
         market="NASDAQ",
         date="2024-01-01",
         filtered_stocks=[],  # Empty list should be allowed
-        held_positions=[]
+        held_positions=[],
     )
     assert prompt_input.filtered_stocks == []

@@ -1,8 +1,8 @@
 """Position domain package."""
 
 from .schemas import (
-    PositionEntry,
     PositionCreate,
+    PositionEntry,
     PositionResponse,
     PositionUpdate,
 )

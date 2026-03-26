@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, PostgresDsn, field_validator
+from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings
 
 
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-        env_file_encoding = "utf-8" 
+        env_file_encoding = "utf-8"
         case_sensitive = True
 
 
