@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = []
 
+    @property
+    def cors_origins(self) -> list[str]:
+        """Get CORS origins for middleware."""
+        return self.BACKEND_CORS_ORIGINS or ["*"]
+
     # Security
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

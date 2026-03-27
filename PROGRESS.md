@@ -8,7 +8,7 @@
 
 | Phase | 내용 | 진행률 |
 |---|---|---|
-| Phase 0: 기반 설계 | Step 1~4 | 3/4 |
+| Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
 | Phase 1: 데이터 레이어 | Step 5~7 | 0/3 |
 | Phase 2: 필터 및 AI | Step 8~10 | 0/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
@@ -16,7 +16,7 @@
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 3 / 27 Steps**
+**전체 진행률: 4 / 27 Steps**
 
 ---
 
@@ -256,9 +256,98 @@ $ python -m pytest tests/unit/ -v
 
 ---
 
-### ⬜ Step 4 — 아키텍처 골격 및 의존성 주입
+### ✅ Step 4 — 아키텍처 골격 및 의존성 주입 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-27
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] 5개 도메인 인터페이스 정의 (ABC 패턴)
+  - MarketDataPort, PositionRepositoryPort, FilterPort, IndicatorPort, StrategyPort
+- [x] PositionRepository stub 구현 (TODO Step 11)
+- [x] Container (수동 DI, 서드파티 프레임워크 없음)
+- [x] FastAPI Depends() 의존성 함수 (get_db_session, get_position_repository)
+- [x] API v1 라우터 구조 (/api/v1/health, /api/v1/positions)
+- [x] CORS 미들웨어 설정
+- [x] 인터페이스 계약 테스트 (TDD)
+- [x] health endpoint 테스트 (TDD)
+
+#### Phase 0 완료 요약
+- Step 1: 개발 환경 ✅
+- Step 2: AI 프롬프트 계약 ✅
+- Step 3: DB 스키마 ✅
+- Step 4: 아키텍처 골격 ✅
+→ Phase 1 (데이터 레이어) 진입 준비 완료
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 62 items
+
+..............................................................           [100%]
+
+62 passed in 0.32s
+```
+
+#### 코드 품질 검증
+```bash
+$ ruff check . --ignore=B008
+All checks passed!
+
+$ black --check .
+All done! ✨ 🍰 ✨
+68 files would be left unchanged.
+```
+
+#### 아키텍처 구조
+```
+backend/app/
+├── core/
+│   ├── config.py          ← Settings + cors_origins property
+│   ├── dependencies.py    ← FastAPI Depends() wiring
+│   └── container.py       ← Manual DI container
+├── domain/
+│   ├── market/
+│   │   └── interfaces.py  ← MarketDataPort (ABC)
+│   ├── position/
+│   │   ├── schemas.py     ← PositionCreate/Response (existing)
+│   │   └── interfaces.py  ← PositionRepositoryPort (ABC)
+│   ├── filter/
+│   │   └── interfaces.py  ← FilterPort (ABC)
+│   ├── indicator/
+│   │   └── interfaces.py  ← IndicatorPort (ABC)
+│   ├── strategy/
+│   │   └── interfaces.py  ← StrategyPort (ABC)
+│   └── ai/                ← existing from Step 2
+├── infra/
+│   ├── db/
+│   │   └── repositories/
+│   │       └── position_repository.py ← PositionRepository stub
+├── api/
+│   ├── v1/
+│   │   ├── router.py      ← API v1 aggregator
+│   │   └── endpoints/
+│   │       ├── health.py  ← /api/v1/health
+│   │       └── positions.py ← /api/v1/positions (stubs)
+│   └── middleware/
+│       └── cors.py        ← CORS configuration
+└── main.py                ← Updated with v1 router + CORS
+```
+
+#### SOLID 원칙 적용 요약
+- **D (Dependency Inversion)**: 모든 서비스가 추상화에 의존, 구체 클래스에 의존하지 않음
+- **I (Interface Segregation)**: 작고 집중된 인터페이스 (단일 책임)
+- **S (Single Responsibility)**: 인터페이스마다 하나의 관심사만 담당
+
+#### 다음 Step 준비사항
+- Step 5: 마켓 데이터 어댑터 (KR/US)
+  - MarketDataPort 인터페이스를 KRMarketAdapter, USMarketAdapter로 구현
+  - pykrx (KR), yfinance (US) 라이브러리 연동
 
 ---
 
