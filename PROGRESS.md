@@ -9,14 +9,14 @@
 | Phase | 내용 | 진행률 |
 |---|---|---|
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
-| Phase 1: 데이터 레이어 | Step 5~7 | 0/3 |
+| Phase 1: 데이터 레이어 | Step 5~7 | 1/3 |
 | Phase 2: 필터 및 AI | Step 8~10 | 0/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 4 / 27 Steps**
+**전체 진행률: 5 / 27 Steps**
 
 ---
 
@@ -351,9 +351,96 @@ backend/app/
 
 ---
 
-### ⬜ Step 5 — 마켓 데이터 어댑터 (KR/US)
+### ✅ Step 5 — 마켓 데이터 어댑터 (KR/US) (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-27
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] pykrx, yfinance 의존성 설치 및 검증
+- [x] MarketDataFetchError 커스텀 예외 클래스 정의
+- [x] TDD Red 단계: 30개 포괄적 단위 테스트 작성
+- [x] TDD Green 단계: KRMarketAdapter 구현 (pykrx 비동기 래핑)
+- [x] TDD Green 단계: USMarketAdapter 구현 (yfinance 비동기 래핑)
+- [x] Live integration tests 추가 (@pytest.mark.live로 CI 제외)
+- [x] Container에 market adapter 팩토리 메소드 등록
+- [x] 전체 테스트 스위트 및 품질 검증 통과
+
+#### 기술적 구현 세부사항
+**KRMarketAdapter (pykrx 기반)**:
+- async wrapper for sync pykrx.stock.get_market_ohlcv_by_date
+- Korean column names (시가, 고가, 저가, 종가, 거래량) → 표준화된 dict 포맷
+- 휴일/주말 시 None 반환, 네트워크 오류 시 MarketDataFetchError 발생
+
+**USMarketAdapter (yfinance 기반)**:
+- async wrapper for sync yfinance.Ticker.history
+- 티커 자동 대문자 변환 (AAPL, GOOGL 등)
+- 표준화된 dict 포맷 반환, 데이터 없을 시 None
+
+**공통 특징**:
+- MarketDataPort 인터페이스 완전 준수
+- asyncio.run_in_executor로 sync 라이브러리 비동기화
+- 다중 티커 배치 처리 (fetch_multiple)
+- 시장 개장 상태 확인 (is_market_open)
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False
+collected 85 items
+
+tests/unit/ .................................................... [ 62%]
+tests/unit/market/ .................................. [100%]
+
+85 passed in 0.39s
+
+================================ tests coverage ================================
+Name                                     Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------
+app/infra/market/kr_adapter.py              29      2    93%   34, 63
+app/infra/market/us_adapter.py              33      2    94%   34, 66
+app/domain/market/exceptions.py              8      0   100%
+app/domain/market/interfaces.py             11      0   100%
+----------------------------------------------------------------------
+TOTAL (Market Modules)                       81      4    95%
+```
+
+#### 코드 품질 검증
+```bash
+$ ruff check . && black --check .
+All checks passed!
+All done! ✨ 🍰 ✨
+```
+
+#### 주요 성과
+- **TDD 방법론**: 테스트 주도 개발로 견고한 구현 달성
+- **SOLID 준수**: 의존성 역전 원칙으로 테스트 가능한 설계
+- **95% 코드 커버리지**: infra 목표(85%) 대폭 초과 달성
+- **비동기 패턴**: sync 라이브러리의 완전한 async 통합
+- **CI/CD 고려**: Live tests 분리로 안정적인 CI 파이프라인
+- **다국가 시장 지원**: KR/US 양쪽 시장 완전 대응
+
+#### 아키텍처 업데이트
+```
+app/infra/market/
+├── __init__.py
+├── kr_adapter.py         ← KRMarketAdapter (pykrx)
+└── us_adapter.py         ← USMarketAdapter (yfinance)
+
+app/core/container.py     ← kr_market_adapter(), us_market_adapter(), market_adapter(market: str)
+
+tests/unit/market/        ← 30개 unit tests (mock 기반)
+tests/integration/market/ ← Live integration tests (CI 제외)
+```
+
+#### 다음 Step 준비사항
+- Step 6: 시장 데이터 저장 및 캐싱
+  - MarketDataAdapter들이 fetch한 데이터를 DB에 저장
+  - 중복 API 호출 방지를 위한 캐싱 전략
 
 ---
 
