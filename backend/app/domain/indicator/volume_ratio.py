@@ -42,9 +42,9 @@ class VolumeRatioIndicator(IndicatorPort):
 
         # Calculate 20-day moving average of volume
         # We need the average of the 20 days BEFORE today
-        volume_avg_20 = volumes[:-1].rolling(
-            window=self.PERIOD, min_periods=self.PERIOD
-        ).mean()
+        volume_avg_20 = (
+            volumes[:-1].rolling(window=self.PERIOD, min_periods=self.PERIOD).mean()
+        )
 
         # Get today's volume (last volume) and the 20-day average
         today_volume = volumes.iloc[-1]

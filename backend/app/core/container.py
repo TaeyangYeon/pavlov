@@ -6,6 +6,7 @@ Follows SOLID Dependency Inversion principle without third-party frameworks.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.domain.filter.chain import FilterChain, build_default_filter_chain
 from app.domain.indicator.engine import IndicatorEngine
 from app.domain.market import MarketDataPort
 from app.domain.market.service import MarketDataService
@@ -116,6 +117,15 @@ class Container:
             IndicatorEngine implementation
         """
         return IndicatorEngine()
+
+    def filter_chain(self) -> FilterChain:
+        """
+        Create FilterChain instance with default filters.
+
+        Returns:
+            FilterChain with VolumeFilter, VolatilityFilter, MAAlignmentFilter
+        """
+        return build_default_filter_chain()
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

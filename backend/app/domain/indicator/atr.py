@@ -48,7 +48,7 @@ class ATRIndicator(IndicatorPort):
 
         tr1 = highs - lows  # High - Low
         tr2 = (highs - prev_close).abs()  # abs(High - Previous Close)
-        tr3 = (lows - prev_close).abs()   # abs(Low - Previous Close)
+        tr3 = (lows - prev_close).abs()  # abs(Low - Previous Close)
 
         # True Range is the maximum of the three
         true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)

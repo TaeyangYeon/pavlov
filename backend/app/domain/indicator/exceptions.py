@@ -10,6 +10,4 @@ class InsufficientDataError(Exception):
         self.indicator_name = indicator_name
         self.required = required
         self.actual = actual
-        super().__init__(
-            f"{indicator_name} requires {required} candles, got {actual}"
-        )
+        super().__init__(f"{indicator_name} requires {required} candles, got {actual}")
