@@ -9,14 +9,14 @@
 | Phase | 내용 | 진행률 |
 |---|---|---|
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
-| Phase 1: 데이터 레이어 | Step 5~7 | 1/3 |
+| Phase 1: 데이터 레이어 | Step 5~7 | 2/3 |
 | Phase 2: 필터 및 AI | Step 8~10 | 0/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 5 / 27 Steps**
+**전체 진행률: 6 / 27 Steps**
 
 ---
 
@@ -444,9 +444,52 @@ tests/integration/market/ ← Live integration tests (CI 제외)
 
 ---
 
-### ⬜ Step 6 — 시장 데이터 저장 및 캐싱
+### ✅ Step 6 — 시장 데이터 저장 및 캐싱 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-27
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] MarketDataRepository (SQLAlchemy 2.0 async, upsert)
+- [x] MarketDataService (Cache-Aside 패턴)
+- [x] 캐시 히트 시 어댑터 미호출 검증 (단위 테스트)
+- [x] DB 저장 실패 시 Graceful Degradation 검증
+- [x] PostgreSQL ON CONFLICT DO UPDATE (upsert)
+- [x] 통합 테스트: 실제 DB로 캐시 히트/미스 검증
+- [x] Container에 MarketDataService 팩토리 등록
+
+#### 캐시 전략 요약
+- Cache key: ticker + market + date (UniqueConstraint)
+- HIT: DB에서 즉시 반환 (API 호출 없음)
+- MISS: 어댑터 호출 → DB 저장 → 반환
+- 저장 실패: 로그 출력 후 데이터 반환 (Degraded Cache)
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+collected 97 items
+
+tests/unit/market/test_market_data_repository.py ......                  [100%]
+tests/unit/market/test_market_data_service.py .......                    [100%]
+tests/unit/test_container.py .....                                       [100%]
+
+============================== 97 passed in 0.46s ===============================
+
+Coverage:
+- app/infra/db/repositories/market_data_repository.py: 100%
+- app/domain/market/service.py: 100%
+```
+
+#### 핵심 구현 사항
+- **MarketDataRepository**: SQLAlchemy 2.0 async 패턴, bulk upsert
+- **MarketDataService**: Cache-Aside로 API 호출 최소화
+- **Container 등록**: 의존성 주입으로 느슨한 결합
+- **TDD 방식**: 단위 테스트 우선 작성 후 구현
+
+#### 다음 Step 준비사항
+- Step 7: 지표 엔진 (RSI / MA / ATR)
+  - MarketDataService로 가져온 OHLCV 데이터를 입력으로 사용
+  - 각 지표를 독립 클래스로 구현 (IndicatorPort)
 
 ---
 

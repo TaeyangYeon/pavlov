@@ -6,9 +6,10 @@ Real implementation will be added in Step 11.
 
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.domain.position.interfaces import PositionRepositoryPort
 from app.domain.position.schemas import PositionCreate, PositionResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class PositionRepository(PositionRepositoryPort):

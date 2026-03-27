@@ -26,13 +26,15 @@ async def test_fetch_daily_ohlcv_returns_correct_format():
     from app.infra.market.us_adapter import USMarketAdapter
 
     # Mock yfinance response
-    mock_df = pd.DataFrame({
-        'Open': [150.0],
-        'High': [155.0],
-        'Low': [148.0],
-        'Close': [152.0],
-        'Volume': [50000000]
-    })
+    mock_df = pd.DataFrame(
+        {
+            'Open': [150.0],
+            'High': [155.0],
+            'Low': [148.0],
+            'Close': [152.0],
+            'Volume': [50000000],
+        }
+    )
     mock_df.index = pd.to_datetime(['2024-01-02'])
 
     mock_ticker = Mock()
@@ -98,13 +100,15 @@ async def test_fetch_multiple_returns_list():
     from app.infra.market.us_adapter import USMarketAdapter
 
     # Mock successful response
-    mock_df = pd.DataFrame({
-        'Open': [150.0],
-        'High': [155.0],
-        'Low': [148.0],
-        'Close': [152.0],
-        'Volume': [50000000]
-    })
+    mock_df = pd.DataFrame(
+        {
+            'Open': [150.0],
+            'High': [155.0],
+            'Low': [148.0],
+            'Close': [152.0],
+            'Volume': [50000000],
+        }
+    )
     mock_df.index = pd.to_datetime(['2024-01-02'])
 
     mock_ticker = Mock()
@@ -131,13 +135,15 @@ async def test_fetch_multiple_skips_failed_tickers():
     from app.infra.market.us_adapter import USMarketAdapter
 
     # Mock responses: success, empty, success
-    success_df = pd.DataFrame({
-        'Open': [150.0],
-        'High': [155.0],
-        'Low': [148.0],
-        'Close': [152.0],
-        'Volume': [50000000]
-    })
+    success_df = pd.DataFrame(
+        {
+            'Open': [150.0],
+            'High': [155.0],
+            'Low': [148.0],
+            'Close': [152.0],
+            'Volume': [50000000],
+        }
+    )
     success_df.index = pd.to_datetime(['2024-01-02'])
 
     empty_df = pd.DataFrame()
@@ -202,13 +208,15 @@ async def test_us_ticker_format_uppercase():
     from app.infra.market.us_adapter import USMarketAdapter
 
     # Mock yfinance response
-    mock_df = pd.DataFrame({
-        'Open': [150.0],
-        'High': [155.0],
-        'Low': [148.0],
-        'Close': [152.0],
-        'Volume': [50000000]
-    })
+    mock_df = pd.DataFrame(
+        {
+            'Open': [150.0],
+            'High': [155.0],
+            'Low': [148.0],
+            'Close': [152.0],
+            'Volume': [50000000],
+        }
+    )
     mock_df.index = pd.to_datetime(['2024-01-02'])
 
     mock_ticker = Mock()

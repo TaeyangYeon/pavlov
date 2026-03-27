@@ -26,13 +26,15 @@ async def test_fetch_daily_ohlcv_returns_correct_format():
     from app.infra.market.kr_adapter import KRMarketAdapter
 
     # Mock pykrx response
-    mock_df = pd.DataFrame({
-        '시가': [70000],
-        '고가': [72000],
-        '저가': [69000],
-        '종가': [71000],
-        '거래량': [1000000]
-    })
+    mock_df = pd.DataFrame(
+        {
+            '시가': [70000],
+            '고가': [72000],
+            '저가': [69000],
+            '종가': [71000],
+            '거래량': [1000000],
+        }
+    )
     mock_df.index = pd.to_datetime(['2024-01-02'])
 
     adapter = KRMarketAdapter()
@@ -95,13 +97,15 @@ async def test_fetch_multiple_returns_list():
     from app.infra.market.kr_adapter import KRMarketAdapter
 
     # Mock successful response for all tickers
-    mock_df = pd.DataFrame({
-        '시가': [70000],
-        '고가': [72000],
-        '저가': [69000],
-        '종가': [71000],
-        '거래량': [1000000]
-    })
+    mock_df = pd.DataFrame(
+        {
+            '시가': [70000],
+            '고가': [72000],
+            '저가': [69000],
+            '종가': [71000],
+            '거래량': [1000000],
+        }
+    )
     mock_df.index = pd.to_datetime(['2024-01-02'])
 
     adapter = KRMarketAdapter()
@@ -127,13 +131,15 @@ async def test_fetch_multiple_skips_failed_tickers():
     from app.infra.market.kr_adapter import KRMarketAdapter
 
     # Mock responses: success, empty, success
-    success_df = pd.DataFrame({
-        '시가': [70000],
-        '고가': [72000],
-        '저가': [69000],
-        '종가': [71000],
-        '거래량': [1000000]
-    })
+    success_df = pd.DataFrame(
+        {
+            '시가': [70000],
+            '고가': [72000],
+            '저가': [69000],
+            '종가': [71000],
+            '거래량': [1000000],
+        }
+    )
     success_df.index = pd.to_datetime(['2024-01-02'])
 
     empty_df = pd.DataFrame()

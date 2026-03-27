@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.domain.market import MarketDataPort
+from app.domain.market.service import MarketDataService
 from app.domain.position.interfaces import PositionRepositoryPort
+from app.infra.db.repositories.market_data_repository import MarketDataRepository
 from app.infra.db.repositories.position_repository import PositionRepository
 from app.infra.market.kr_adapter import KRMarketAdapter
 from app.infra.market.us_adapter import USMarketAdapter
@@ -72,6 +74,38 @@ class Container:
             return self.us_market_adapter()
         else:
             raise ValueError(f"Unsupported market: {market}")
+
+    def market_data_repository(self, session: AsyncSession) -> MarketDataRepository:
+        """
+        Create MarketDataRepository instance.
+
+        Args:
+            session: Database session
+
+        Returns:
+            MarketDataRepository implementation
+        """
+        return MarketDataRepository(session)
+
+    def market_data_service(
+        self, market: str, session: AsyncSession
+    ) -> MarketDataService:
+        """
+        Create MarketDataService instance with cache-aside pattern.
+
+        Args:
+            market: Market identifier ("KR" or "US")
+            session: Database session
+
+        Returns:
+            MarketDataService implementation
+
+        Raises:
+            ValueError: If market identifier is not supported
+        """
+        adapter = self.market_adapter(market)
+        repository = self.market_data_repository(session)
+        return MarketDataService(adapter, repository)
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

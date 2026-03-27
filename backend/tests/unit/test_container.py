@@ -1,102 +1,67 @@
 """
-Test dependency injection container.
+Unit tests for Container dependency injection.
 """
+
+from unittest.mock import MagicMock
 
 import pytest
 from app.core.config import Settings
 from app.core.container import Container, get_container
-from app.domain.market import MarketDataPort
-from app.infra.market.kr_adapter import KRMarketAdapter
-from app.infra.market.us_adapter import USMarketAdapter
+from app.domain.market.service import MarketDataService
+from app.infra.db.repositories.market_data_repository import MarketDataRepository
 
 
-def test_container_kr_market_adapter():
-    """Container creates KRMarketAdapter correctly."""
-    settings = Settings(
-        SECRET_KEY="test",
-        DATABASE_URL="postgresql://test",
-        POSTGRES_USER="test",
-        POSTGRES_PASSWORD="test",
-        POSTGRES_DB="test"
-    )
-    container = Container(settings)
+class TestContainer:
+    """Test dependency injection container."""
 
-    adapter = container.kr_market_adapter()
+    @pytest.fixture
+    def settings(self):
+        """Mock settings for testing."""
+        return Settings(
+            SECRET_KEY="test-key",
+            DATABASE_URL="postgresql+asyncpg://test:test@localhost:5432/test",
+            DATABASE_TEST_URL="postgresql+asyncpg://test:test@localhost:5433/test",
+            POSTGRES_USER="test",
+            POSTGRES_PASSWORD="test",
+            POSTGRES_DB="test",
+            POSTGRES_TEST_DB="test",
+        )
 
-    assert isinstance(adapter, MarketDataPort)
-    assert isinstance(adapter, KRMarketAdapter)
+    @pytest.fixture
+    def container(self, settings):
+        """Container instance for testing."""
+        return Container(settings)
 
+    @pytest.fixture
+    def mock_session(self):
+        """Mock database session."""
+        return MagicMock()
 
-def test_container_us_market_adapter():
-    """Container creates USMarketAdapter correctly."""
-    settings = Settings(
-        SECRET_KEY="test",
-        DATABASE_URL="postgresql://test",
-        POSTGRES_USER="test",
-        POSTGRES_PASSWORD="test",
-        POSTGRES_DB="test"
-    )
-    container = Container(settings)
+    def test_market_data_repository_creation(self, container, mock_session):
+        """Test MarketDataRepository factory method."""
+        repository = container.market_data_repository(mock_session)
+        assert isinstance(repository, MarketDataRepository)
+        assert repository._session is mock_session
 
-    adapter = container.us_market_adapter()
+    def test_market_data_service_creation_kr(self, container, mock_session):
+        """Test MarketDataService factory method for KR market."""
+        service = container.market_data_service("KR", mock_session)
+        assert isinstance(service, MarketDataService)
+        assert isinstance(service._repository, MarketDataRepository)
 
-    assert isinstance(adapter, MarketDataPort)
-    assert isinstance(adapter, USMarketAdapter)
+    def test_market_data_service_creation_us(self, container, mock_session):
+        """Test MarketDataService factory method for US market."""
+        service = container.market_data_service("US", mock_session)
+        assert isinstance(service, MarketDataService)
+        assert isinstance(service._repository, MarketDataRepository)
 
+    def test_market_data_service_invalid_market(self, container, mock_session):
+        """Test MarketDataService with invalid market raises error."""
+        with pytest.raises(ValueError, match="Unsupported market: INVALID"):
+            container.market_data_service("INVALID", mock_session)
 
-def test_container_market_adapter_kr():
-    """Container.market_adapter returns KRMarketAdapter for 'KR'."""
-    settings = Settings(
-        SECRET_KEY="test",
-        DATABASE_URL="postgresql://test",
-        POSTGRES_USER="test",
-        POSTGRES_PASSWORD="test",
-        POSTGRES_DB="test"
-    )
-    container = Container(settings)
-
-    adapter = container.market_adapter("KR")
-
-    assert isinstance(adapter, MarketDataPort)
-    assert isinstance(adapter, KRMarketAdapter)
-
-
-def test_container_market_adapter_us():
-    """Container.market_adapter returns USMarketAdapter for 'US'."""
-    settings = Settings(
-        SECRET_KEY="test",
-        DATABASE_URL="postgresql://test",
-        POSTGRES_USER="test",
-        POSTGRES_PASSWORD="test",
-        POSTGRES_DB="test"
-    )
-    container = Container(settings)
-
-    adapter = container.market_adapter("US")
-
-    assert isinstance(adapter, MarketDataPort)
-    assert isinstance(adapter, USMarketAdapter)
-
-
-def test_container_market_adapter_invalid_market():
-    """Container.market_adapter raises ValueError for unsupported market."""
-    settings = Settings(
-        SECRET_KEY="test",
-        DATABASE_URL="postgresql://test",
-        POSTGRES_USER="test",
-        POSTGRES_PASSWORD="test",
-        POSTGRES_DB="test"
-    )
-    container = Container(settings)
-
-    with pytest.raises(ValueError, match="Unsupported market: INVALID"):
-        container.market_adapter("INVALID")
-
-
-def test_get_container_singleton():
-    """get_container() returns singleton instance."""
-    container1 = get_container()
-    container2 = get_container()
-
-    assert container1 is container2
-    assert isinstance(container1, Container)
+    def test_get_container_singleton(self):
+        """Test get_container returns singleton instance."""
+        container1 = get_container()
+        container2 = get_container()
+        assert container1 is container2
