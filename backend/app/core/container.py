@@ -6,6 +6,7 @@ Follows SOLID Dependency Inversion principle without third-party frameworks.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.domain.indicator.engine import IndicatorEngine
 from app.domain.market import MarketDataPort
 from app.domain.market.service import MarketDataService
 from app.domain.position.interfaces import PositionRepositoryPort
@@ -106,6 +107,15 @@ class Container:
         adapter = self.market_adapter(market)
         repository = self.market_data_repository(session)
         return MarketDataService(adapter, repository)
+
+    def indicator_engine(self) -> IndicatorEngine:
+        """
+        Create IndicatorEngine instance.
+
+        Returns:
+            IndicatorEngine implementation
+        """
+        return IndicatorEngine()
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

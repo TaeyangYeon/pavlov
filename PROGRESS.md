@@ -9,14 +9,14 @@
 | Phase | 내용 | 진행률 |
 |---|---|---|
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
-| Phase 1: 데이터 레이어 | Step 5~7 | 2/3 |
+| Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 0/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 6 / 27 Steps**
+**전체 진행률: 7 / 27 Steps**
 
 ---
 
@@ -493,9 +493,123 @@ Coverage:
 
 ---
 
-### ⬜ Step 7 — 지표 엔진 (RSI / MA / ATR)
+### ✅ Step 7 — 지표 엔진 (RSI / MA / ATR / Volume Ratio) (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-27
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] 4개 기술 지표 구현 (RSI, MA, ATR, Volume Ratio)
+- [x] TDD Red 단계: 31개 포괄적 단위 테스트 (IndicatorEngine 포함)
+- [x] RSIIndicator - Wilder's smoothing RSI 계산 (14-period)
+- [x] MovingAverageIndicator - MA20 + MA60 계산
+- [x] ATRIndicator - True Range + Wilder's smoothing (14-period)
+- [x] VolumeRatioIndicator - 오늘 거래량 / 20일 평균 비율
+- [x] IndicatorEngine - 4개 지표 오케스트레이션
+- [x] Container에 IndicatorEngine 등록
+- [x] InsufficientDataError 커스텀 예외 정의
+- [x] 전체 테스트 스위트 및 품질 검증 통과 (128 tests)
+
+#### 기술적 구현 세부사항
+**RSI (Relative Strength Index)**:
+- Wilder's smoothing 방식 (alpha=1/14)
+- 15 캔들 최소 요구 (14-period + 1)
+- 0-100 범위, 70+ 과매수, 30- 과매도
+
+**MovingAverage (Simple MA)**:
+- MA20 + MA60 동시 계산
+- 60 캔들 최소 요구 (MA60 기준)
+- 산술 평균 방식
+
+**ATR (Average True Range)**:
+- True Range = max(H-L, |H-PC|, |L-PC|)
+- Wilder's smoothing 적용 (14-period)
+- 15 캔들 최소 요구
+
+**VolumeRatio**:
+- 오늘 거래량 / 과거 20일 평균 거래량
+- 21 캔들 최소 요구 (20일 + 오늘)
+- 1.0 기준 (정상), 2.0+ (고거래량), 0.5- (저거래량)
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False
+collected 128 items
+
+tests/unit/ai/test_prompt_builder.py .....                               [  3%]
+tests/unit/ai/test_schemas.py .......                                    [  9%]
+tests/unit/ai/test_validators.py .....                                   [ 13%]
+tests/unit/api/test_health.py ....                                       [ 16%]
+tests/unit/db/test_analysis_log_model.py .....                           [ 20%]
+tests/unit/db/test_decision_log_model.py ......                          [ 25%]
+tests/unit/db/test_market_data_model.py ....                             [ 28%]
+tests/unit/db/test_position_model.py .....                               [ 32%]
+tests/unit/db/test_strategy_output_model.py .....                        [ 35%]
+tests/unit/db/test_user_model.py .....                                   [ 39%]
+tests/unit/domain/test_interfaces.py .......                             [ 45%]
+tests/unit/indicator/test_atr.py ......                                  [ 50%]
+tests/unit/indicator/test_indicator_engine.py .....                      [ 53%]
+tests/unit/indicator/test_moving_average.py .......                      [ 59%]
+tests/unit/indicator/test_rsi.py .......                                 [ 64%]
+tests/unit/indicator/test_volume_ratio.py ......                         [ 69%]
+tests/unit/market/test_kr_adapter.py ........                            [ 75%]
+tests/unit/market/test_market_data_repository.py ......                  [ 80%]
+tests/unit/market/test_market_data_service.py .......                    [ 85%]
+tests/unit/market/test_us_adapter.py .........                           [ 92%]
+tests/unit/test_config.py ..                                             [ 94%]
+tests/unit/test_container.py .....                                       [ 98%]
+tests/unit/test_main.py ..                                               [100%]
+
+128 passed in 0.50s
+```
+
+#### 코드 품질 검증
+```bash
+$ ruff check .
+Found 3 errors (B008 FastAPI Depends 이슈, 기존 코드 관련)
+
+$ 128 unit tests: ALL PASSED ✅
+```
+
+#### 핵심 구현 사항
+- **IndicatorPort**: ABC 추상 클래스, calculate() 메소드 계약
+- **IndicatorEngine**: 4개 지표 오케스트레이션, StockIndicators 스키마 형식 반환
+- **TDD 방식**: 테스트 우선 작성 (Red) → 구현 (Green)
+- **pandas/numpy**: 금융 계산 라이브러리 (ta-lib 대신)
+- **Wilder's Smoothing**: RSI/ATR 전문 기법 적용
+
+#### 아키�ecture 업데이트
+```
+app/domain/indicator/
+├── __init__.py
+├── exceptions.py         ← InsufficientDataError
+├── interfaces.py         ← IndicatorPort (ABC)
+├── rsi.py               ← RSIIndicator (Wilder's smoothing)
+├── moving_average.py    ← MovingAverageIndicator (MA20+MA60)
+├── atr.py               ← ATRIndicator (True Range)
+├── volume_ratio.py      ← VolumeRatioIndicator
+└── engine.py            ← IndicatorEngine (orchestrator)
+
+app/core/container.py    ← indicator_engine() factory method
+
+tests/unit/indicator/    ← 31개 unit tests (모든 지표 + 엔진)
+```
+
+#### Phase 1 완료 요약
+- Step 5: 마켓 데이터 어댑터 (KR/US) ✅
+- Step 6: 시장 데이터 저장 및 캐싱 ✅  
+- Step 7: 지표 엔진 (4개 지표) ✅
+→ Phase 2 (필터 및 AI) 진입 준비 완료
+
+#### 다음 Step 준비사항
+- Step 8: Rule-Based 필터 엔진
+  - 지표 데이터를 입력으로 받아 필터링 조건 적용
+  - IndicatorEngine 출력을 FilterPort 구현체로 처리
 
 ---
 
