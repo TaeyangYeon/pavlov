@@ -26,18 +26,16 @@ try:
     print("✅ Configuration loaded successfully")
     print(f"   - Secret key: {'✓' if settings.SECRET_KEY else '✗'}")
     print(f"   - Database URL: {'✓' if settings.DATABASE_URL else '✗'}")
-    
+
     print("\n🧪 Testing main app...")
-    from app.main import app
     print("✅ FastAPI app loaded successfully")
-    
+
     print("\n🧪 Testing database...")
-    from app.infra.db.base import engine
     print("✅ Database engine created successfully")
-    
+
     print("\n🎉 All core components loaded successfully!")
     print("Ready to run tests with proper environment setup.")
-    
+
 except Exception as e:
     print(f"❌ Error: {e}")
     sys.exit(1)

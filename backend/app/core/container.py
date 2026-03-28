@@ -6,6 +6,8 @@ Follows SOLID Dependency Inversion principle without third-party frameworks.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.domain.ai.anthropic_client import AnthropicClient
+from app.domain.ai.client import AIClient
 from app.domain.filter.chain import FilterChain, build_default_filter_chain
 from app.domain.indicator.engine import IndicatorEngine
 from app.domain.market import MarketDataPort
@@ -126,6 +128,19 @@ class Container:
             FilterChain with VolumeFilter, VolatilityFilter, MAAlignmentFilter
         """
         return build_default_filter_chain()
+
+    def ai_client(self) -> AIClient:
+        """
+        Returns real AnthropicClient in production,
+        MockAIClient can be injected in tests.
+        """
+        api_key = self._settings.ANTHROPIC_API_KEY
+        if not api_key:
+            # Fallback to mock in development
+            # TODO Step 19: read encrypted key from DB
+            from app.domain.ai.client import MockAIClient
+            return MockAIClient()
+        return AnthropicClient(api_key=api_key)
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

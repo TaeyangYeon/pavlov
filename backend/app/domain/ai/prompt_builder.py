@@ -61,7 +61,7 @@ def build_prompt(input_data: AIPromptInput) -> str:
     else:
         prompt_parts.extend(["## 현재 보유 포지션", "보유 중인 포지션이 없습니다.", ""])
 
-    # Output format instructions
+    # Output format instructions with enhanced JSON schema template
     prompt_parts.extend(
         [
             "## 출력 요구사항",
@@ -107,7 +107,29 @@ def build_prompt(input_data: AIPromptInput) -> str:
             "   - stop_loss는 명확한 손실 한계점 설정",
             "   - 보유 포지션의 현재 손익률 고려",
             "",
-            "반드시 JSON 형식으로만 응답하고, 추가 설명은 포함하지 마세요.",
+            '다음 JSON 형식으로만 응답하세요. 다른 텍스트나 설명은 포함하지 마세요:',
+            "",
+            "{",
+            '  "market_summary": "시장 전체 분석 요약 (한국어, 200자 이내)",',
+            '  "strategies": [',
+            "    {",
+            '      "ticker": "종목코드",',
+            '      "action": "hold|buy|partial_sell|full_exit",',
+            '      "take_profit": [{"pct": 10.0, "sell_ratio": 0.3}],',
+            '      "stop_loss": [{"pct": -5.0, "sell_ratio": 0.5}],',
+            '      "rationale": "전략 근거 (한국어, 100자 이내)",',
+            '      "confidence": 0.0',
+            "    }",
+            "  ]",
+            "}",
+            "",
+            "중요 규칙:",
+            "- market_summary: 반드시 한국어, 200자 이내",
+            "- rationale: 반드시 한국어, 100자 이내",
+            "- confidence: 0.0 ~ 1.0 사이 숫자",
+            '- action이 "buy"이면 반드시 take_profit 포함',
+            '- action이 "full_exit"이면 stop_loss 비워두기',
+            "- JSON 외 다른 텍스트 절대 포함하지 말 것",
         ]
     )
 

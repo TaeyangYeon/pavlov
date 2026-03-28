@@ -10,13 +10,13 @@
 |---|---|---|
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
-| Phase 2: 필터 및 AI | Step 8~10 | 1/3 |
+| Phase 2: 필터 및 AI | Step 8~10 | 2/3 |
 | Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 8 / 27 Steps**
+**전체 진행률: 9 / 27 Steps**
 
 ---
 
@@ -725,9 +725,63 @@ tests/unit/filter/       ← 52개 unit tests (모든 필터 + 체인)
 
 ---
 
-### ⬜ Step 9 — AI 클라이언트 및 프롬프트 빌더
+### ✅ Step 9 — AI 클라이언트 및 프롬프트 빌더 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-28
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] AnthropicClient (AIClient ABC 구현)
+- [x] 모델: claude-sonnet-4-5 (고정)
+- [x] 재시도 로직 (최대 3회, 지수 백오프 1s/2s/4s)
+- [x] 재시도 대상: RateLimitError, ConnectionError, InternalServerError
+- [x] 비재시도 대상: AuthenticationError, BadRequestError
+- [x] 마크다운 펜스 제거 + JSON 파싱 + Pydantic 검증
+- [x] AIConfigError, AICallError, AIResponseParseError 예외
+- [x] 프롬프트 빌더 강화 (JSON 스키마 템플릿, 한국어 지시)
+- [x] Container에 AnthropicClient 등록 (API 키 없으면 MockAIClient 폴백)
+
+#### AI 호출 비용 제어 장치
+- 모델: claude-sonnet-4-5 (Opus 대비 ~80% 저렴)
+- max_tokens: 2000 (불필요한 토큰 낭비 방지)
+- temperature: 0.3 (일관성 있는 전략 생성)
+- 1일 1회 실행 (Step 16 스케줄러)
+
+#### 테스트 결과
+```bash
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 33 items
+
+backend/tests/unit/ai/test_anthropic_client.py ...........               [ 33%]
+backend/tests/unit/ai/test_prompt_builder.py .....                       [ 48%]
+backend/tests/unit/ai/test_prompt_builder_enhanced.py .....              [ 63%]
+backend/tests/unit/ai/test_schemas.py .......                            [ 84%]
+backend/tests/unit/ai/test_validators.py .....                           [100%]
+
+================================ tests coverage ================================
+Name                                        Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------------------------------
+backend/app/domain/ai/__init__.py               0      0      0      0   100%
+backend/app/domain/ai/anthropic_client.py      46      0      8      0   100%
+backend/app/domain/ai/client.py                 6      1      0      0    83%   49
+backend/app/domain/ai/exceptions.py            12      0      0      0   100%
+backend/app/domain/ai/prompt_builder.py        16      0      8      0   100%
+backend/app/domain/ai/schemas.py               41      0      0      0   100%
+backend/app/domain/ai/validators.py            23      3     18      3    85%   41, 50, 62
+---------------------------------------------------------------------------------------
+TOTAL                                         144      4     34      3    96%
+============================== 33 passed in 0.39s ==============================
+```
+
+#### 다음 Step 준비사항
+- Step 10: AI 응답 파서 및 검증 강화
+  - validate_ai_output() 통합
+  - 할루시네이션 방어 로직
 
 ---
 

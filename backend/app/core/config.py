@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import PostgresDsn
+from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings
 
 
@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "info"
     LOG_FORMAT: str = "json"
+
+    # AI API
+    ANTHROPIC_API_KEY: str = Field(default="")
 
     # External APIs (optional for future use)
     ALPHA_VANTAGE_API_KEY: str | None = None
