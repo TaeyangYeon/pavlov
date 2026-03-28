@@ -8,11 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.domain.ai.anthropic_client import AnthropicClient
 from app.domain.ai.client import AIClient
+from app.domain.ai.pipeline import AnalysisPipeline
 from app.domain.filter.chain import FilterChain, build_default_filter_chain
 from app.domain.indicator.engine import IndicatorEngine
 from app.domain.market import MarketDataPort
 from app.domain.market.service import MarketDataService
 from app.domain.position.interfaces import PositionRepositoryPort
+from app.infra.db.repositories.analysis_log_repository import AnalysisLogRepository
 from app.infra.db.repositories.market_data_repository import MarketDataRepository
 from app.infra.db.repositories.position_repository import PositionRepository
 from app.infra.market.kr_adapter import KRMarketAdapter
@@ -141,6 +143,32 @@ class Container:
             from app.domain.ai.client import MockAIClient
             return MockAIClient()
         return AnthropicClient(api_key=api_key)
+
+    def analysis_log_repository(self, session: AsyncSession) -> AnalysisLogRepository:
+        """
+        Create AnalysisLogRepository instance.
+
+        Args:
+            session: Database session
+
+        Returns:
+            AnalysisLogRepository implementation
+        """
+        return AnalysisLogRepository(session)
+
+    def analysis_pipeline(self, session: AsyncSession) -> AnalysisPipeline:
+        """
+        Create AnalysisPipeline instance with dependencies.
+
+        Args:
+            session: Database session
+
+        Returns:
+            AnalysisPipeline implementation
+        """
+        ai_client = self.ai_client()
+        log_repository = self.analysis_log_repository(session)
+        return AnalysisPipeline(ai_client, log_repository)
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

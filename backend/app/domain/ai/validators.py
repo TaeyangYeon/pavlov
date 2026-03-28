@@ -62,3 +62,44 @@ def validate_ai_output(output: AIPromptOutput) -> ValidationResult:
             errors.append(f"{strategy_prefix}: Ticker must be a valid non-empty string")
 
     return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+
+
+def validate_ai_output_with_context(
+    output: AIPromptOutput, valid_tickers: list[str]
+) -> ValidationResult:
+    """
+    Enhanced validation with ticker cross-check.
+    Runs all Step 2 validations PLUS:
+    - Ticker must exist in valid_tickers (hallucination guard)
+    - take_profit pct must be positive
+    - stop_loss pct must be negative
+    """
+    # Run base validation first
+    base_result = validate_ai_output(output)
+    errors = list(base_result.errors)
+
+    for strategy in output.strategies:
+        prefix = f"Strategy ({strategy.ticker})"
+
+        # Ticker cross-check
+        if strategy.ticker not in valid_tickers:
+            errors.append(
+                f"{prefix}: ticker not in filtered stocks "
+                f"(possible hallucination)"
+            )
+
+        # TP pct must be positive
+        for tp in strategy.take_profit:
+            if tp.pct <= 0:
+                errors.append(
+                    f"{prefix}: take_profit pct must be > 0, " f"got {tp.pct}"
+                )
+
+        # SL pct must be negative
+        for sl in strategy.stop_loss:
+            if sl.pct >= 0:
+                errors.append(
+                    f"{prefix}: stop_loss pct must be < 0, " f"got {sl.pct}"
+                )
+
+    return ValidationResult(is_valid=len(errors) == 0, errors=errors)
