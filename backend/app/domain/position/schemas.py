@@ -37,6 +37,9 @@ class PositionCreate(BaseModel):
     entries: list[PositionEntry] = Field(
         description="List of position entries", min_items=1
     )
+    avg_price: Decimal | None = Field(
+        description="Calculated average price", default=None
+    )
 
     class Config:
         json_encoders = {Decimal: lambda v: float(v), datetime: lambda v: v.isoformat()}

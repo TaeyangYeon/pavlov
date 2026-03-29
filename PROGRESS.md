@@ -11,12 +11,12 @@
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
-| Phase 3: 포지션 관리 | Step 11~15 | 0/5 |
+| Phase 3: 포지션 관리 | Step 11~15 | 1/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 10 / 27 Steps**
+**전체 진행률: 11 / 27 Steps**
 
 ---
 
@@ -884,9 +884,67 @@ tests/integration/ai/       ← 7개 integration tests (NEW)
 
 ---
 
-### ⬜ Step 11 — 포지션 입력 API + 최소 UI
+### ✅ Step 11 — 포지션 입력 API + 최소 UI (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-29
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] PositionRepository stub → 실제 SQLAlchemy 구현
+- [x] PositionService (가중평균 계산, 비즈니스 로직)
+- [x] REST API 완성 (GET/POST/PATCH/DELETE)
+- [x] 다중 진입가 지원 (entries JSONB array)
+- [x] 가중평균 계산 및 DB 저장
+- [x] API 통합 테스트 (httpx AsyncClient)
+- [x] React + TypeScript + Vite 프론트엔드 초기화
+- [x] PositionForm (다중 진입가 동적 입력)
+- [x] PositionList (오픈 포지션 테이블)
+- [x] EntryRow (개별 진입가 행 컴포넌트)
+
+#### 가중평균 계산 공식
+avg_price = Σ(price × quantity) / Σ(quantity)
+예: [(100 × 10) + (90 × 5)] / 15 = 96.6667
+
+#### 현재 제약 (향후 해결)
+- user_id: 고정 stub UUID (실제 인증은 미구현)
+- 스타일링: 인라인 CSS만 사용 (디자인 미완성)
+
+#### 테스트 결과
+```
+============================= test session starts ==============================
+platform darwin -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/geseuteu/pavlov
+configfile: pyproject.toml
+plugins: cov-7.1.0, asyncio-1.3.0, Faker-40.11.1, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 17 items
+
+backend/tests/unit/position/test_position_repository.py .......          [ 41%]
+backend/tests/unit/position/test_position_service.py ..........          [100%]
+
+============================== 17 passed in 0.18s ===============================
+```
+
+#### 프론트엔드 빌드 검증
+```
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+vite v8.0.3 building client environment for production...
+transforming...✓ 20 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:  0.29 kB
+dist/assets/index-DGNrK5qb.css    1.78 kB │ gzip:  0.81 kB
+dist/assets/index-DiiVFeMj.js   200.47 kB │ gzip: 62.54 kB
+
+✓ built in 136ms
+```
+
+#### 다음 Step 준비사항
+- Step 12: PnL 계산 엔진
+  - PositionService의 avg_price를 기반으로 수익률 계산
+  - 실현/미실현 손익 계산
 
 ---
 
