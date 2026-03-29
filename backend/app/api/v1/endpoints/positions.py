@@ -15,6 +15,8 @@ from app.domain.position.schemas import (
     PositionEntry,
     PositionResponse,
     PositionWithPnL,
+    TpSlEvaluationRequest,
+    TpSlEvaluationResponse,
 )
 from app.domain.position.service import PositionService
 
@@ -160,3 +162,27 @@ async def get_position_pnl(
         return await service.get_position_with_pnl(position_id, current_price)
     except PositionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post(
+    "/{position_id}/evaluate",
+    response_model=TpSlEvaluationResponse
+)
+async def evaluate_tp_sl(
+    position_id: UUID,
+    request: TpSlEvaluationRequest,
+    service: PositionService = Depends(get_position_service)
+):
+    """
+    Evaluate TP/SL levels against current price.
+    Returns action recommendation: hold/partial_sell/full_exit
+    """
+    try:
+        return await service.evaluate_tp_sl(
+            position_id=position_id,
+            current_price=request.current_price,
+            take_profit_levels=request.take_profit_levels,
+            stop_loss_levels=request.stop_loss_levels,
+        )
+    except PositionNotFoundError:
+        raise HTTPException(status_code=404, detail="Position not found")

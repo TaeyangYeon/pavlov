@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.domain.ai.schemas import StopLossLevel, TakeProfitLevel
+
 
 class PositionEntry(BaseModel):
     """Position entry representing a single buy transaction."""
@@ -112,3 +114,46 @@ class PositionWithPnL(BaseModel):
     class Config:
         json_encoders = {Decimal: lambda v: float(v), datetime: lambda v: v.isoformat()}
         from_attributes = True
+
+
+@dataclass
+class TpSlDecision:
+    """Result of TP/SL judgment for a position."""
+    action: str          # "hold" | "partial_sell" | "full_exit"
+    triggered_by: str    # "tp" | "sl" | "none"
+    triggered_level_pct: Decimal | None
+    sell_quantity: Decimal
+    sell_ratio: Decimal
+    current_pnl_pct: Decimal
+    realized_pnl_estimate: Decimal
+
+
+class TpSlEvaluationRequest(BaseModel):
+    """Input for TP/SL engine evaluation via API."""
+    position_id: UUID
+    current_price: Decimal = Field(gt=0)
+    take_profit_levels: list[TakeProfitLevel] = Field(
+        default_factory=list
+    )
+    stop_loss_levels: list[StopLossLevel] = Field(
+        default_factory=list
+    )
+
+
+class TpSlEvaluationResponse(BaseModel):
+    """API response for TP/SL evaluation."""
+    position_id: UUID
+    ticker: str
+    action: str
+    triggered_by: str
+    triggered_level_pct: Decimal | None
+    sell_quantity: Decimal
+    sell_ratio: Decimal
+    current_pnl_pct: Decimal
+    realized_pnl_estimate: Decimal
+    avg_price: Decimal
+    current_price: Decimal
+    total_quantity: Decimal
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}

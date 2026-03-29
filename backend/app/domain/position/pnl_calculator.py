@@ -21,20 +21,20 @@ class PnLCalculator:
     ) -> PnLResult:
         """
         Calculate unrealized P&L for an open position.
-        
+
         Formula:
         - Current Value = total_quantity * current_price
-        - Cost Basis = total_quantity * avg_price  
+        - Cost Basis = total_quantity * avg_price
         - Unrealized P&L = current_value - cost_basis
         - Unrealized P&L % = (current_price - avg_price) / avg_price * 100
-        
+
         Args:
             position: Position with entries and avg_price
             current_price: Current market price per share
-            
+
         Returns:
             PnLResult with unrealized P&L calculations
-            
+
         Raises:
             InvalidPriceError: If current_price <= 0
         """
@@ -82,19 +82,19 @@ class PnLCalculator:
     ) -> PnLResult:
         """
         Calculate realized P&L from a position sale.
-        
+
         Formula:
         - Quantity Sold = original_quantity - remaining_quantity
         - Realized P&L = quantity_sold * (sale_price - avg_price)
-        
+
         Args:
             original_position: Position before sale
             remaining_position: Position after sale (None if fully sold)
             sale_price: Price per share at sale
-            
+
         Returns:
             PnLResult with realized P&L calculations
-            
+
         Raises:
             InvalidPriceError: If sale_price <= 0
         """
@@ -105,7 +105,9 @@ class PnLCalculator:
         original_quantity = sum(entry.quantity for entry in original_position.entries)
         remaining_quantity = Decimal("0")
         if remaining_position:
-            remaining_quantity = sum(entry.quantity for entry in remaining_position.entries)
+            remaining_quantity = sum(
+                entry.quantity for entry in remaining_position.entries
+            )
 
         quantity_sold = original_quantity - remaining_quantity
 

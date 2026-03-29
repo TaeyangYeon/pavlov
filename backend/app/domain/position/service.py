@@ -6,6 +6,7 @@ Orchestrates position operations with avg_price calculation.
 from decimal import Decimal
 from uuid import UUID
 
+from app.domain.ai.schemas import StopLossLevel, TakeProfitLevel
 from app.domain.position.exceptions import PositionNotFoundError
 from app.domain.position.interfaces import PositionRepositoryPort
 from app.domain.position.pnl_calculator import PnLCalculator
@@ -14,7 +15,9 @@ from app.domain.position.schemas import (
     PositionEntry,
     PositionResponse,
     PositionWithPnL,
+    TpSlEvaluationResponse,
 )
+from app.domain.position.tp_sl_engine import TpSlEngine
 
 # TODO: replace with real auth in future step
 STUB_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -26,9 +29,15 @@ class PositionService:
     Single responsibility: avg_price calculation + delegation.
     """
 
-    def __init__(self, repository: PositionRepositoryPort):
+    def __init__(
+        self,
+        repository: PositionRepositoryPort,
+        calculator: PnLCalculator | None = None,
+        tp_sl_engine: TpSlEngine | None = None
+    ):
         self._repository = repository
-        self._pnl_calculator = PnLCalculator()
+        self._calculator = calculator or PnLCalculator()
+        self._tp_sl_engine = tp_sl_engine or TpSlEngine()
 
     async def create_position(self, data: PositionCreate) -> PositionResponse:
         """Create a new position with calculated avg_price."""
@@ -85,7 +94,7 @@ class PositionService:
         if not position:
             raise PositionNotFoundError(f"Position {position_id} not found")
 
-        pnl_result = self._pnl_calculator.calculate_unrealized(position, current_price)
+        pnl_result = self._calculator.calculate_unrealized(position, current_price)
 
         return PositionWithPnL(
             id=position.id,
@@ -111,7 +120,7 @@ class PositionService:
 
         positions_with_pnl = []
         for position in positions:
-            pnl_result = self._pnl_calculator.calculate_unrealized(position, current_price)
+            pnl_result = self._calculator.calculate_unrealized(position, current_price)
 
             position_with_pnl = PositionWithPnL(
                 id=position.id,
@@ -131,6 +140,48 @@ class PositionService:
             positions_with_pnl.append(position_with_pnl)
 
         return positions_with_pnl
+
+    async def evaluate_tp_sl(
+        self,
+        position_id: UUID,
+        current_price: Decimal,
+        take_profit_levels: list[TakeProfitLevel],
+        stop_loss_levels: list[StopLossLevel],
+    ) -> TpSlEvaluationResponse:
+        """
+        Evaluate TP/SL for a position at current price.
+        Raises PositionNotFoundError if position not found.
+        """
+        position = await self._repository.get_by_id(position_id)
+        if not position:
+            raise PositionNotFoundError(f"Position {position_id} not found")
+
+        total_quantity = sum(
+            e.quantity for e in position.entries
+        )
+
+        decision = self._tp_sl_engine.evaluate(
+            avg_price=position.avg_price,
+            current_price=current_price,
+            total_quantity=total_quantity,
+            take_profit_levels=take_profit_levels,
+            stop_loss_levels=stop_loss_levels,
+        )
+
+        return TpSlEvaluationResponse(
+            position_id=position_id,
+            ticker=position.ticker,
+            action=decision.action,
+            triggered_by=decision.triggered_by,
+            triggered_level_pct=decision.triggered_level_pct,
+            sell_quantity=decision.sell_quantity,
+            sell_ratio=decision.sell_ratio,
+            current_pnl_pct=decision.current_pnl_pct,
+            realized_pnl_estimate=decision.realized_pnl_estimate,
+            avg_price=position.avg_price,
+            current_price=current_price,
+            total_quantity=total_quantity,
+        )
 
     def _calculate_avg_price(
         self, entries: list[PositionEntry]

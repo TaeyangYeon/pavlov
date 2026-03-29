@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from app.domain.position.exceptions import PositionNotFoundError
+from app.domain.position.exceptions import InvalidPriceError, PositionNotFoundError
 from app.domain.position.interfaces import PositionRepositoryPort
 from app.domain.position.pnl_calculator import PnLCalculator
 from app.domain.position.schemas import (
@@ -36,8 +36,7 @@ def mock_calculator():
 @pytest.fixture
 def service_with_mocks(mock_repository, mock_calculator):
     """PositionService instance with mocked dependencies."""
-    service = PositionService(mock_repository)
-    service._pnl_calculator = mock_calculator
+    service = PositionService(mock_repository, calculator=mock_calculator)
     return service
 
 
@@ -244,10 +243,10 @@ class TestPositionServicePnL:
         current_price = Decimal("-10.00")  # Invalid price
 
         mock_repository.get_by_id.return_value = sample_position
-        mock_calculator.calculate_unrealized.side_effect = ValueError("Invalid price")
+        mock_calculator.calculate_unrealized.side_effect = InvalidPriceError("Current price must be positive")
 
         # Execute & Assert
-        with pytest.raises(ValueError, match="Invalid price"):
+        with pytest.raises(InvalidPriceError, match="Current price must be positive"):
             await service_with_mocks.get_position_with_pnl(position_id, current_price)
 
         mock_repository.get_by_id.assert_called_once_with(position_id)
@@ -260,7 +259,7 @@ class TestPositionServicePnL:
         service = PositionService(mock_repository)
 
         # The service should either have a calculator or create one
-        assert hasattr(service, '_pnl_calculator')
+        assert hasattr(service, '_calculator')
         # The calculator should be set during service initialization or lazily
 
     @pytest.mark.asyncio

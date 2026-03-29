@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import type { PositionResponse, PositionWithPnL } from '../api/positions'
 import { positionAPI } from '../api/positions'
+import { TpSlPanel } from './TpSlPanel'
 
 interface PositionListWithPnLProps {
   refreshTrigger: number
@@ -17,6 +18,7 @@ export function PositionListWithPnL({ refreshTrigger }: PositionListWithPnLProps
   const [loading, setLoading] = useState(true)
   const [loadingPnL, setLoadingPnL] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPositionForTpSl, setSelectedPositionForTpSl] = useState<{ id: string; ticker: string } | null>(null)
 
   const fetchPositions = async () => {
     try {
@@ -308,20 +310,36 @@ export function PositionListWithPnL({ refreshTrigger }: PositionListWithPnLProps
                       {formatDate(position.created_at)}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleClosePosition(position.id, position.ticker)}
-                        style={{
-                          background: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        Close
-                      </button>
+                      <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => setSelectedPositionForTpSl({ id: position.id, ticker: position.ticker })}
+                          style={{
+                            background: '#17a2b8',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          TP/SL
+                        </button>
+                        <button
+                          onClick={() => handleClosePosition(position.id, position.ticker)}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          Close
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -369,6 +387,14 @@ export function PositionListWithPnL({ refreshTrigger }: PositionListWithPnLProps
             </div>
           )}
         </div>
+      )}
+
+      {selectedPositionForTpSl && (
+        <TpSlPanel
+          positionId={selectedPositionForTpSl.id}
+          ticker={selectedPositionForTpSl.ticker}
+          onClose={() => setSelectedPositionForTpSl(null)}
+        />
       )}
     </div>
   )
