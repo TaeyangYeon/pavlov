@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
@@ -77,3 +78,37 @@ class PositionUpdate(BaseModel):
 
     class Config:
         json_encoders = {Decimal: lambda v: float(v), datetime: lambda v: v.isoformat()}
+
+
+@dataclass
+class PnLResult:
+    """Pure data class for PnL calculation results."""
+
+    unrealized_pnl: Decimal
+    unrealized_pnl_percent: Decimal
+    realized_pnl: Decimal
+    total_pnl: Decimal
+
+
+class PositionWithPnL(BaseModel):
+    """Position with calculated PnL data."""
+
+    id: UUID = Field(description="Position unique identifier")
+    ticker: str = Field(description="Stock ticker symbol")
+    market: str = Field(description="Market identifier")
+    entries: list[PositionEntry] = Field(description="List of position entries")
+    avg_price: Decimal | None = Field(
+        description="Calculated average price", examples=[Decimal("102.50")]
+    )
+    status: str = Field(description="Position status", examples=["open", "closed"])
+    created_at: datetime = Field(description="Position creation timestamp")
+    updated_at: datetime = Field(description="Position last update timestamp")
+    current_price: Decimal = Field(description="Current market price")
+    unrealized_pnl: Decimal = Field(description="Unrealized P&L amount")
+    unrealized_pnl_percent: Decimal = Field(description="Unrealized P&L percentage")
+    realized_pnl: Decimal = Field(description="Realized P&L amount")
+    total_pnl: Decimal = Field(description="Total P&L (unrealized + realized)")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v), datetime: lambda v: v.isoformat()}
+        from_attributes = True

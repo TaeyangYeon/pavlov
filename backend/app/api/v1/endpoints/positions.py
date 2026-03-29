@@ -3,12 +3,19 @@ Position management endpoints.
 Complete implementation with PositionService.
 """
 
+from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.dependencies import get_position_service
-from app.domain.position.schemas import PositionCreate, PositionEntry, PositionResponse
+from app.domain.position.exceptions import PositionNotFoundError
+from app.domain.position.schemas import (
+    PositionCreate,
+    PositionEntry,
+    PositionResponse,
+    PositionWithPnL,
+)
 from app.domain.position.service import PositionService
 
 router = APIRouter(prefix="/positions", tags=["positions"])
@@ -122,3 +129,34 @@ async def close_position(
     success = await service.close_position(position_id)
     if not success:
         raise HTTPException(status_code=404, detail="Position not found")
+
+
+@router.get("/{position_id}/pnl", response_model=PositionWithPnL)
+async def get_position_pnl(
+    position_id: UUID,
+    current_price: Decimal = Query(
+        description="Current market price for P&L calculation",
+        gt=0,
+        examples=[Decimal("150.25")]
+    ),
+    service: PositionService = Depends(get_position_service)
+):
+    """
+    Get position with calculated P&L data.
+
+    Args:
+        position_id: Position unique identifier
+        current_price: Current market price for P&L calculation
+        service: Position service dependency
+
+    Returns:
+        Position enriched with P&L calculations
+
+    Raises:
+        HTTPException: 404 if position not found
+        HTTPException: 422 if current_price is invalid
+    """
+    try:
+        return await service.get_position_with_pnl(position_id, current_price)
+    except PositionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))

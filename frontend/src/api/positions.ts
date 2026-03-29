@@ -25,6 +25,14 @@ export interface PositionResponse {
   updated_at: string
 }
 
+export interface PositionWithPnL extends PositionResponse {
+  current_price: string
+  unrealized_pnl: string
+  unrealized_pnl_percent: string
+  realized_pnl: string
+  total_pnl: string
+}
+
 class PositionAPI {
   private baseUrl = '/api/v1/positions'
 
@@ -71,6 +79,14 @@ class PositionAPI {
     if (!response.ok) {
       throw new Error(`Failed to close position: ${response.statusText}`)
     }
+  }
+
+  async getPositionWithPnL(id: string, currentPrice: string): Promise<PositionWithPnL> {
+    const response = await fetch(`${this.baseUrl}/${id}/pnl?current_price=${currentPrice}`)
+    if (!response.ok) {
+      throw new Error(`Failed to get position P&L: ${response.statusText}`)
+    }
+    return response.json()
   }
 }
 
