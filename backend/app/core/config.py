@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     
     # Missed Execution Recovery Configuration
     max_recovery_days: int = Field(default=3)
+    
+    # Notification Configuration
+    cooling_off_minutes: int = Field(default=30)
+    email_enabled: bool = Field(default=False)
+    email_host: str = Field(default="smtp.gmail.com")
+    email_port: int = Field(default=587)
+    email_user: str = Field(default="")
+    email_password: str = Field(default="")
+    email_to: str = Field(default="")
 
     # External APIs (optional for future use)
     ALPHA_VANTAGE_API_KEY: str | None = None

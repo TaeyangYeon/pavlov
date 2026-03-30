@@ -23,6 +23,11 @@ from app.infra.db.repositories.position_repository import PositionRepository
 from app.infra.db.repositories.strategy_output_repository import StrategyOutputRepository
 from app.infra.market.kr_adapter import KRMarketAdapter
 from app.infra.market.us_adapter import USMarketAdapter
+from app.domain.notification.interfaces import NotificationPort
+from app.domain.notification.service import NotificationService
+from app.infra.db.repositories.notification_repository import NotificationRepository
+from app.infra.notification.email_notifier import EmailNotifier
+from app.infra.notification.in_app_notifier import InAppNotifier
 
 
 class Container:
@@ -223,6 +228,45 @@ class Container:
         change_detector = self.change_detector()
         return StrategyIntegrationEngine(
             position_service, strategy_repository, change_detector
+        )
+
+    def notification_repository(self, session: AsyncSession) -> NotificationRepository:
+        """
+        Create NotificationRepository instance.
+
+        Args:
+            session: Database session
+
+        Returns:
+            NotificationRepository implementation
+        """
+        return NotificationRepository(session)
+
+    def notification_service(self, session: AsyncSession) -> NotificationService:
+        """
+        Create NotificationService with all configured notifiers.
+
+        Args:
+            session: Database session for repository operations
+
+        Returns:
+            NotificationService: Configured notification service
+        """
+        repo = self.notification_repository(session)
+
+        # Always include in-app notifications
+        notifiers: list[NotificationPort] = [
+            InAppNotifier(repo),
+        ]
+
+        # Optionally include email notifications
+        if self._settings.email_enabled:
+            notifiers.append(EmailNotifier(self._settings))
+
+        return NotificationService(
+            notifiers=notifiers,
+            repository=repo,
+            settings=self._settings,
         )
 
     # Placeholders for future steps:

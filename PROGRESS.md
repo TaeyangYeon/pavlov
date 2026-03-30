@@ -13,10 +13,10 @@
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
 | Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
 | Phase 4: 스케줄러 | Step 16~17 | 2/2 ✅ Phase 4 Complete |
-| Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
+| Phase 5: UX 및 안전 장치 | Step 18~22 | 1/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 17 / 27 Steps**
+**전체 진행률: 18 / 27 Steps**
 
 ---
 
@@ -1742,9 +1742,91 @@ SchedulerPanel.tsx ← Recovery 섹션 추가
 
 ---
 
-### ⬜ Step 18 — 알림 시스템
+### ✅ Step 18 — 알림 시스템 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-30
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] Notification DB 모델 + Alembic 마이그레이션
+- [x] NotificationPort ABC (채널 추상화)
+- [x] InAppNotifier (DB 저장, 프론트 폴링)
+- [x] EmailNotifier (SMTP, EMAIL_ENABLED=false 기본)
+- [x] NotificationService:
+      notify_strategy_run() — 변경된 전략만 알림
+      notify_tp_sl_alert() — TP/SL 트리거 시 알림
+      check_and_warn_impulse() — 냉각 기간 내 거래 경고
+- [x] 냉각 기간(Cooling-Off): 30분 (설정 가능)
+- [x] 멀티채널: 한 채널 실패 시 나머지 채널 계속 전송
+- [x] GET /api/v1/notifications/unread (30초 폴링)
+- [x] PATCH /api/v1/notifications/{id}/read
+- [x] PATCH /api/v1/notifications/read-all
+- [x] 컨테이너에 알림 서비스 등록
+- [x] React NotificationBell 컴포넌트
+
+#### 알림 트리거 요약
+- strategy_change: changed_from_last=True 전략마다 1개
+- tp_sl_alert: action != "hold" 시 즉시
+- impulse_warning: 전략 알림 후 30분 이내 거래 시도 시
+
+#### 감정 억제 장치 (Cooling-Off)
+AI 전략 알림 수신 → 30분 이내 반대 거래 시도
+→ ⚠️ "충동 거래 주의" 알림 발송
+→ AI 추천 내용 재표시로 의사결정 재고 유도
+
+#### 구현된 파일 구조
+```
+backend/app/domain/notification/
+├── __init__.py
+├── schemas.py          ← NotificationCreate, NotificationResponse
+├── interfaces.py       ← NotificationPort ABC
+├── service.py          ← NotificationService (핵심 비즈니스 로직)
+└── exceptions.py
+
+backend/app/infra/notification/
+├── __init__.py
+├── in_app_notifier.py   ← DB 기반 알림 (폴링)
+└── email_notifier.py    ← SMTP 알림 (옵션)
+
+backend/app/infra/db/models/
+└── notification.py      ← Notification, NotificationTypeEnum
+
+backend/app/infra/db/repositories/
+└── notification_repository.py ← DB 작업 추상화
+
+backend/app/api/v1/endpoints/
+└── notifications.py     ← REST API
+
+backend/app/core/
+├── container.py         ← 의존성 주입에 알림 서비스 추가
+└── database.py          ← 세션 관리
+
+frontend/src/components/
+├── NotificationBell.tsx ← 알림 벨 컴포넌트
+└── NotificationBell.css ← 스타일
+
+backend/tests/unit/notification/
+├── test_notification_service.py ← 핵심 로직 테스트
+├── test_in_app_notifier.py
+├── test_cooling_off.py     ← 냉각기간 경계 조건 테스트
+└── test_email_notifier.py
+
+alembic/versions/
+└── 48507568bca7_add_notifications_table.py ← DB 마이그레이션
+```
+
+#### TDD 접근법 적용
+1. **Red Phase**: 모든 테스트 케이스를 먼저 작성 (실패하는 상태)
+2. **Green Phase**: 테스트를 통과시키는 최소 구현
+3. **테스트 포커스**:
+   - 냉각기간 경계 조건 (정확히 30분, 29분 59초, 30분 1초)
+   - 멀티채널 격리 (한 채널 실패 시 다른 채널 영향 없음)
+   - 전략 변경 필터링 (changed_from_last=True만 알림)
+
+#### 다음 Step 준비사항
+- Step 19: API 키 관리 (암호화)
+  - users.api_key_encrypted 실제 암호화 구현
+  - AES-256 or Fernet
 
 ---
 

@@ -6,6 +6,7 @@ from app.core.config import get_settings
 
 # Import all models so Alembic can detect them
 from app.infra.db.base import Base
+from app.infra.db.models import *  # noqa: F403,F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config

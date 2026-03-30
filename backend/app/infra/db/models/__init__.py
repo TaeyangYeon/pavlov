@@ -5,6 +5,7 @@ from .analysis_log import MarketEnum as AnalysisMarketEnum
 from .decision_log import DecisionActionEnum, DecisionLog
 from .market_data import MarketData
 from .market_data import MarketEnum as MarketDataMarketEnum
+from .notification import Notification, NotificationTypeEnum
 from .position import MarketEnum as PositionMarketEnum
 from .position import Position, PositionStatusEnum
 from .strategy_output import ActionEnum, StrategyOutput
@@ -23,4 +24,6 @@ __all__ = [
     "ActionEnum",
     "DecisionLog",
     "DecisionActionEnum",
+    "Notification",
+    "NotificationTypeEnum",
 ]
