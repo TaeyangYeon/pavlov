@@ -14,9 +14,13 @@ from app.domain.indicator.engine import IndicatorEngine
 from app.domain.market import MarketDataPort
 from app.domain.market.service import MarketDataService
 from app.domain.position.interfaces import PositionRepositoryPort
+from app.domain.position.service import PositionService
+from app.domain.strategy.change_detector import ChangeDetector
+from app.domain.strategy.engine import StrategyIntegrationEngine
 from app.infra.db.repositories.analysis_log_repository import AnalysisLogRepository
 from app.infra.db.repositories.market_data_repository import MarketDataRepository
 from app.infra.db.repositories.position_repository import PositionRepository
+from app.infra.db.repositories.strategy_output_repository import StrategyOutputRepository
 from app.infra.market.kr_adapter import KRMarketAdapter
 from app.infra.market.us_adapter import USMarketAdapter
 
@@ -169,6 +173,57 @@ class Container:
         ai_client = self.ai_client()
         log_repository = self.analysis_log_repository(session)
         return AnalysisPipeline(ai_client, log_repository)
+
+    def position_service(self, session: AsyncSession) -> PositionService:
+        """
+        Create PositionService instance with dependencies.
+
+        Args:
+            session: Database session
+
+        Returns:
+            PositionService implementation
+        """
+        position_repository = self.position_repository(session)
+        return PositionService(position_repository)
+
+    def strategy_output_repository(self, session: AsyncSession) -> StrategyOutputRepository:
+        """
+        Create StrategyOutputRepository instance.
+
+        Args:
+            session: Database session
+
+        Returns:
+            StrategyOutputRepository implementation
+        """
+        return StrategyOutputRepository(session)
+
+    def change_detector(self) -> ChangeDetector:
+        """
+        Create ChangeDetector instance.
+
+        Returns:
+            ChangeDetector implementation
+        """
+        return ChangeDetector()
+
+    def strategy_integration_engine(self, session: AsyncSession) -> StrategyIntegrationEngine:
+        """
+        Create StrategyIntegrationEngine instance with dependencies.
+
+        Args:
+            session: Database session
+
+        Returns:
+            StrategyIntegrationEngine implementation
+        """
+        position_service = self.position_service(session)
+        strategy_repository = self.strategy_output_repository(session)
+        change_detector = self.change_detector()
+        return StrategyIntegrationEngine(
+            position_service, strategy_repository, change_detector
+        )
 
     # Placeholders for future steps:
     # def strategy_service(self, session) -> StrategyPort: ...

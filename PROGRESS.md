@@ -11,12 +11,12 @@
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
-| Phase 3: 포지션 관리 | Step 11~15 | 4/5 |
+| Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 14 / 27 Steps**
+**전체 진행률: 15 / 27 Steps**
 
 ---
 
@@ -1375,9 +1375,195 @@ backend/tests/unit/position/
 
 ---
 
-### ⬜ Step 15 — 전략 통합 엔진
+### ✅ Step 15 — 전략 통합 엔진 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-30
+**소요 시간**: 약 4시간  
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] UnifiedStrategy, StrategyRunResult Pydantic 스키마 정의
+- [x] ACTION_SEVERITY 우선순위 매핑 (hold < buy < partial_sell < full_exit)
+- [x] ChangeDetector 구현 (ticker, action, sell_quantity 2dp 비교)
+- [x] StrategyOutputRepository 구현 (SQLAlchemy 2.0 async)
+- [x] StrategyIntegrationEngine 구현 (AI + Position Engine 통합)
+- [x] Container에 모든 전략 컴포넌트 등록 (의존성 주입)
+- [x] POST /api/v1/strategy/run API 엔드포인트 추가
+- [x] React StrategyDashboard 컴포넌트 (KR/US 시장 분석)
+- [x] 통합 테스트 구현 (9개 시나리오)
+- [x] 전체 코드 품질 검증 (ruff 린트 통과)
+
+#### 핵심 아키텍처: 전략 통합 파이프라인
+
+**Phase 3 최종 통합**: AI 전략 ⊕ TP/SL 엔진 ⊕ Trailing Stop 엔진 → 통합 전략
+
+```
+1. AI 전략 수집 (AnalysisPipeline 출력)
+2. 오픈 포지션 조회 (PositionService)
+3. 각 티커별 전략 통합:
+   - AI 전략 + Position Engine 평가
+   - 액션 우선순위: full_exit > partial_sell > buy > hold
+   - Trailing Stop 우선, SL/TP 후순위
+4. 변경 감지 (ChangeDetector)
+5. DB 저장 (changed=true인 전략만)
+6. StrategyRunResult 반환
+```
+
+#### 전략 통합 규칙
+
+**액션 병합 우선순위**:
+- **full_exit**: 모든 소스에서 최우선 (리스크 관리)
+- **trailing stop**: Position Engine 최고 우선순위
+- **partial_sell > buy > hold**: ACTION_SEVERITY 매핑 적용
+- **confidence 조정**: 충돌 시 confidence 감소 (max 0.9)
+
+**소스 표시**:
+- **"ai"**: AI 전략이 우선
+- **"position_engine"**: TP/SL/Trailing이 우선  
+- **"merged"**: 동일 우선순위 병합
+
+#### 변경 감지 로직
+```python
+# ChangeDetector: 불필요한 알림 방지
+def has_changed(current: UnifiedStrategy, last: dict | None) -> bool:
+    if last is None: return True
+    if current.ticker != last.get("ticker"): return True
+    if current.final_action != last.get("action"): return True
+    
+    # 2 decimal precision for sell_quantity
+    current_qty = current.sell_quantity.quantize(Decimal("0.01"))
+    last_qty = Decimal(str(last.get("sell_quantity", "0"))).quantize(Decimal("0.01"))
+    return current_qty != last_qty
+```
+
+#### API 엔드포인트
+
+```http
+POST /api/v1/strategy/run
+Content-Type: application/json
+
+{
+  "market": "KR",
+  "run_date": "2026-03-30",
+  "ai_output": null,
+  "analysis_log_id": null,
+  "trailing_configs": {
+    "AAPL": {
+      "mode": "percentage",
+      "trail_pct": 10.0
+    }
+  }
+}
+```
+
+**응답 예시**:
+```json
+{
+  "market": "KR",
+  "run_date": "2026-03-30",
+  "total_tickers_analyzed": 5,
+  "changed_count": 2,
+  "strategies": [
+    {
+      "ticker": "005930",
+      "final_action": "partial_sell",
+      "action_source": "position_engine",
+      "confidence": 1.0,
+      "rationale": "TP triggered at 10.5%",
+      "sell_quantity": "50.0000",
+      "realized_pnl_estimate": "525.0000",
+      "changed_from_last": true
+    }
+  ]
+}
+```
+
+#### React StrategyDashboard
+
+**기능**:
+- **KR/US 시장별** 전략 분석 버튼
+- **실시간 API 호출** (현재가 없이 Position Engine만)
+- **전략 카드 UI**: 액션별 색상 코딩 + 이모지
+- **변경 감지 표시**: CHANGED 배지
+- **통계 요약**: 분석 티커 수, 변경된 전략 수
+- **confidence 바**: 전략 신뢰도 시각화
+
+**통합 방식**:
+```typescript
+// App.tsx에 Strategy 탭 추가
+const [activeTab, setActiveTab] = useState<'positions' | 'strategy'>('positions');
+
+{activeTab === 'strategy' ? (
+  <StrategyDashboard refreshTrigger={refreshTrigger} />
+) : (
+  // ... Position components
+)}
+```
+
+#### 테스트 커버리지
+
+**단위 테스트**: 57개 (전체 TDD Red-Green 사이클)
+- ChangeDetector: 정밀도 테스트 (2dp), None 처리
+- StrategyEngine: 9개 병합 시나리오, confidence 조정
+- Repository: SQLAlchemy async, get_latest() 검증
+
+**통합 테스트**: 9개 시나리오
+- AI only (포지션 없음)
+- Position only (AI 없음)  
+- AI + Position 병합
+- Trailing Stop 통합
+- 변경 감지 (unchanged 케이스)
+- 다중 티커 처리
+- 에러 처리
+
+#### 코드 구조
+
+```
+backend/app/domain/strategy/
+├── __init__.py
+├── schemas.py                 ← UnifiedStrategy, StrategyRunResult, ACTION_SEVERITY
+├── change_detector.py         ← ChangeDetector (2dp precision)
+└── engine.py                  ← StrategyIntegrationEngine (orchestrator)
+
+backend/app/infra/db/repositories/
+└── strategy_output_repository.py ← SQLAlchemy 2.0 async CRUD
+
+backend/app/api/v1/endpoints/
+└── strategy.py               ← POST /strategy/run endpoint
+
+backend/app/core/
+├── dependencies.py           ← get_strategy_integration_engine()
+└── container.py              ← DI 팩토리 메서드들
+
+frontend/src/components/
+└── StrategyDashboard.tsx     ← React strategy UI
+
+backend/tests/
+├── unit/strategy/            ← 57개 단위 테스트
+└── integration/strategy/     ← 9개 통합 테스트
+```
+
+#### Phase 3 완료 요약
+- Step 11: 포지션 입력 API + 최소 UI ✅
+- Step 12: PnL 계산 엔진 ✅
+- Step 13: TP/SL 판정 엔진 ✅  
+- Step 14: 트레일링 스탑 엔진 ✅
+- Step 15: 전략 통합 엔진 ✅
+→ **Phase 4 (스케줄러) 진입 준비 완료**
+
+#### 핵심 구현 사항
+- **TDD 방법론**: Red-Green-Refactor 사이클로 견고한 구현
+- **SOLID 원칙**: 의존성 주입, 인터페이스 분리, 단일 책임
+- **Decimal 정밀도**: 모든 금융 계산에 Decimal 사용
+- **변경 감지**: 불필요한 알림 방지로 UX 개선
+- **우선순위 병합**: 리스크 관리 우선의 전략 통합
+- **React 통합**: 직관적 전략 대시보드 UI
+
+#### 다음 Step 준비사항
+- Step 16: 스케줄러 설정 (KR/US)
+  - StrategyIntegrationEngine을 일정에 따라 실행
+  - KR: 15:40 (장 마감 후), US: 05:00 (한국시간 기준)
+  - APScheduler 또는 Celery 활용
 
 ---
 

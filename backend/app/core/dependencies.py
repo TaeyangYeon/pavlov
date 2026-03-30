@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.container import get_container
 from app.domain.position.interfaces import PositionRepositoryPort
 from app.domain.position.service import PositionService
+from app.domain.strategy.engine import StrategyIntegrationEngine
 from app.infra.db.base import AsyncSessionLocal
 
 
@@ -57,3 +58,18 @@ def get_position_service(
     """
     repository = get_container().position_repository(session)
     return PositionService(repository)
+
+
+def get_strategy_integration_engine(
+    session: AsyncSession = Depends(get_db_session),
+) -> StrategyIntegrationEngine:
+    """
+    Get StrategyIntegrationEngine dependency.
+
+    Args:
+        session: Database session dependency
+
+    Returns:
+        StrategyIntegrationEngine: Strategy integration engine instance
+    """
+    return get_container().strategy_integration_engine(session)
