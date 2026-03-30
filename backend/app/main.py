@@ -1,16 +1,34 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.middleware.cors import setup_cors_middleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.scheduler.scheduler import get_scheduler_manager
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan manager for scheduler startup/shutdown."""
+    # Startup
+    scheduler_manager = get_scheduler_manager()
+    scheduler_manager.start()
+    
+    try:
+        yield
+    finally:
+        # Shutdown
+        scheduler_manager.shutdown()
+
 
 app = FastAPI(
     title="Pavlov API",
     description="AI-assisted investment decision support system",
     version="0.1.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 # Set up CORS middleware

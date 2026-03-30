@@ -3,11 +3,12 @@ import { PositionForm } from './components/PositionForm'
 import { PositionList } from './components/PositionList'
 import { PositionListWithPnL } from './components/PositionListWithPnL'
 import { StrategyDashboard } from './components/StrategyDashboard'
+import { SchedulerPanel } from './components/SchedulerPanel'
 
 function App() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [showPnLView, setShowPnLView] = useState(false)
-  const [activeTab, setActiveTab] = useState<'positions' | 'strategy'>('positions')
+  const [activeTab, setActiveTab] = useState<'positions' | 'strategy' | 'scheduler'>('positions')
 
   const handlePositionCreated = () => {
     setRefreshTrigger(prev => prev + 1)
@@ -71,6 +72,20 @@ function App() {
           >
             🎯 Strategy
           </button>
+          <button
+            onClick={() => setActiveTab('scheduler')}
+            style={{
+              padding: '10px 20px',
+              border: activeTab !== 'scheduler' ? '1px solid #ddd' : 'none',
+              backgroundColor: activeTab === 'scheduler' ? '#6610f2' : 'white',
+              color: activeTab === 'scheduler' ? 'white' : '#333',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            📅 Scheduler
+          </button>
         </div>
 
         {/* Position view selector (only show when positions tab is active) */}
@@ -122,9 +137,13 @@ function App() {
             <PositionList refreshTrigger={refreshTrigger} />
           )}
         </div>
-      ) : (
+      ) : activeTab === 'strategy' ? (
         <div style={{ maxWidth: '100%' }}>
           <StrategyDashboard refreshTrigger={refreshTrigger} />
+        </div>
+      ) : (
+        <div style={{ maxWidth: '100%' }}>
+          <SchedulerPanel />
         </div>
       )}
     </div>

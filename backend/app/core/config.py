@@ -40,6 +40,24 @@ class Settings(BaseSettings):
     # AI API
     ANTHROPIC_API_KEY: str = Field(default="")
 
+    # Scheduler Configuration
+    scheduler_enabled: bool = Field(default=True)
+    kr_tickers: list[str] = Field(
+        default=[
+            "005930",  # 삼성전자
+            "000660",  # SK하이닉스
+            "035420",  # NAVER
+            "005380",  # 현대차
+            "000270",  # 기아
+        ]
+    )
+    us_tickers: list[str] = Field(
+        default=[
+            "AAPL", "MSFT", "GOOGL",
+            "AMZN", "NVDA",
+        ]
+    )
+
     # External APIs (optional for future use)
     ALPHA_VANTAGE_API_KEY: str | None = None
     POLYGON_API_KEY: str | None = None

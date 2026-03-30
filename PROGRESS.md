@@ -12,11 +12,11 @@
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
 | Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
-| Phase 4: 스케줄러 | Step 16~17 | 0/2 |
+| Phase 4: 스케줄러 | Step 16~17 | 1/2 ✅ |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 15 / 27 Steps**
+**전체 진행률: 16 / 27 Steps**
 
 ---
 
@@ -1567,9 +1567,72 @@ backend/tests/
 
 ---
 
-### ⬜ Step 16 — 스케줄러 설정 (KR/US)
+### ✅ Step 16 — 스케줄러 설정 (KR/US 독립 Job)
 
-**상태**: 대기 중
+**날짜**: 2026-03-30  
+**소요 시간**: 약 2시간  
+**담당**: Claude Code
+
+#### 완료된 작업
+
+**1. Dependencies & Config (Task 1)**
+- [x] APScheduler 3.10.0+ 설치 (pyproject.toml)
+- [x] pytz, freezegun 의존성 추가
+- [x] config.py에 스케줄러 설정 (kr_tickers, us_tickers)
+- [x] .env.example에 스케줄러 환경변수
+
+**2. TDD Red Phase (Task 2)**
+- [x] test_runner.py - JobRunner 안전 실행 래퍼 테스트 (5개)
+- [x] test_kr_analysis_job.py - KR 마켓 작업 테스트 (7개)
+- [x] test_us_analysis_job.py - US 마켓 작업 테스트 (8개)
+- [x] freezegun을 활용한 시간 mocking으로 KST 타임존 테스트
+
+**3. TDD Green Phase (Tasks 3-5)**
+- [x] JobRunner - 시작/완료 로깅, 예외 처리, 지속시간 계산
+- [x] KR Analysis Job - KST 현재일 기준, KOSPI 마감 후 분석
+- [x] US Analysis Job - KST 전일 기준, NYSE 데이터 활용
+
+**4. APScheduler 설정 (Task 6)**
+- [x] SchedulerManager 클래스 - AsyncIOScheduler 래퍼
+- [x] KR: 월-금 16:10 KST CronTrigger
+- [x] US: 화-토 07:10 KST CronTrigger  
+- [x] 작업 격리, 최대 인스턴스 1개, coalesce 설정
+
+**5. FastAPI 통합 (Task 7)**
+- [x] main.py lifespan 이벤트 - 시작/종료 시 스케줄러 관리
+- [x] scheduler API 엔드포인트 - /api/v1/scheduler/status
+- [x] 스케줄러 상태 및 다음 실행 시간 조회
+
+**6. React UI (Task 8)**
+- [x] SchedulerPanel.tsx - 스케줄러 상태 대시보드
+- [x] 실시간 다음 실행 시간 표시 (30초 자동 새로고침)
+- [x] KR/US 작업별 아이콘 및 상태 표시
+- [x] App.tsx에 "📅 Scheduler" 탭 추가
+
+#### 핵심 특징
+
+- **완전한 작업 격리**: KR 실패가 US에 영향 없음
+- **시간대 정확성**: pytz Asia/Seoul로 KST 타임존 처리
+- **멱등성**: analysis_log.exists()로 중복 실행 방지  
+- **TDD 방법론**: Red-Green-Refactor 사이클 준수
+- **운영 가시성**: React 대시보드로 실시간 모니터링
+
+#### 스케줄링 로직
+
+```
+KR Market: 월-금 16:10 KST
+└── 현재일 기준 분석 (KOSPI 마감 후)
+└── 파이프라인: fetch → indicators → filters → AI → strategy
+
+US Market: 화-토 07:10 KST  
+└── 전일 기준 분석 (NYSE 데이터)
+└── 파이프라인: fetch → filters → AI → strategy
+```
+
+#### 다음 Step 준비사항
+- Step 17: Missed Execution 복구 로직
+  - 스케줄러 다운타임 후 누락된 실행 재시도
+  - 최대 N일 백로그 처리 로직
 
 ---
 
