@@ -11,12 +11,12 @@
 | Phase 0: 기반 설계 | Step 1~4 | 4/4 ✅ |
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
-| Phase 3: 포지션 관리 | Step 11~15 | 2/5 |
+| Phase 3: 포지션 관리 | Step 11~15 | 4/5 |
 | Phase 4: 스케줄러 | Step 16~17 | 0/2 |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 12 / 27 Steps**
+**전체 진행률: 14 / 27 Steps**
 
 ---
 
@@ -1287,19 +1287,91 @@ backend/tests/unit/position/test_tp_sl_engine.py ....................... [ 96%]
 - **우선순위 로직**: SL > TP 규칙으로 리스크 관리 우선
 - **실시간 UI**: 모달 기반 직관적 TP/SL 설정 및 평가
 - **코드 품질**: ruff 린트 통과, SOLID 원칙 준수
-→ **Step 13 (TP/SL 판단 엔진) 진입 준비 완료**
+→ **Step 13 (TP/SL 판단 엔진) 완료**
 
 ---
 
-### ⬜ Step 13 — TP/SL 판단 엔진
+### ✅ Step 14 — 트레일링 스탑 엔진 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-30
+**담당**: Claude Code
 
----
+#### 완료된 작업
+- [x] TrailingStopEngine (순수 계산, Decimal, no I/O)
+- [x] 래칫 메커니즘 (HWM은 오직 상승만 가능)
+- [x] 퍼센트 모드 (trail_pct % from HWM)
+- [x] ATR 모드 (N × ATR from HWM)
+- [x] TrailingStopResult dataclass
+- [x] TrailingStopConfig Pydantic schema (model_validator)
+- [x] high_water_mark DB 컬럼 추가 (Alembic migration)
+- [x] PositionService.evaluate_trailing_stop() (HWM DB 저장)
+- [x] PositionService.evaluate_full_position()
+      (TP/SL + Trailing Stop 통합, 우선순위: SL→TP→Trailing)
+- [x] POST /api/v1/positions/{id}/trailing-stop 엔드포인트
+- [x] POST /api/v1/positions/{id}/full-evaluation 엔드포인트
+- [x] 가격 시퀀스 테스트 (래칫 + 트리거 검증)
 
-### ⬜ Step 14 — 트레일링 스탑 엔진
+#### 래칫 메커니즘
+HWM = max(기존 HWM, 현재가) — 항상 최고점 추적
+Stop Price = HWM × (1 - trail_pct/100)  [퍼센트 모드]
+Stop Price = HWM - (N × ATR)             [ATR 모드]
+Trigger: 현재가 ≤ Stop Price → full_exit
 
-**상태**: 대기 중
+#### 평가 우선순위
+1. SL (고정) — 자본 보전 최우선
+2. TP (고정)
+3. Trailing Stop — 이익 보호
+4. Hold
+
+#### 테스트 결과
+```
+=== Core Tests ===
+✓ All imports successful
+✓ Valid percentage config created
+✓ Valid ATR config created
+✓ Correctly rejected missing trail_pct
+✓ Correctly rejected missing atr_value
+✓ Basic ratchet mechanism works
+✓ Trigger condition works
+✓ All calculations use Decimal precision
+
+=== Price Sequence Test ===
+Step 0: price=100, hwm=100.0000, stop=90.0000, triggered=False
+Step 1: price=105, hwm=105.0000, stop=94.5000, triggered=False
+Step 2: price=110, hwm=110.0000, stop=99.0000, triggered=False
+Step 3: price=120, hwm=120.0000, stop=108.0000, triggered=False
+Step 4: price=130, hwm=130.0000, stop=117.0000, triggered=False
+Step 5: price=125, hwm=130.0000, stop=117.0000, triggered=False
+Step 6: price=120, hwm=130.0000, stop=117.0000, triggered=False
+Step 7: price=118, hwm=130.0000, stop=117.0000, triggered=False
+Step 8: price=117, hwm=130.0000, stop=117.0000, triggered=True
+✓ Ratchet mechanism works correctly!
+```
+
+#### 코드 구조 업데이트
+```
+backend/app/domain/position/
+├── trailing_stop_engine.py   ← TrailingStopEngine (NEW)
+├── schemas.py                ← TrailingStop schemas (업데이트)
+└── service.py                ← trailing stop methods (업데이트)
+
+backend/app/api/v1/endpoints/
+└── positions.py              ← trailing stop endpoints (업데이트)
+
+backend/app/infra/db/models/
+└── position.py               ← high_water_mark column (업데이트)
+
+backend/alembic/versions/
+└── 9632ae77fe88_add_high_water_mark_to_positions.py ← 새 마이그레이션
+
+backend/tests/unit/position/
+└── test_trailing_stop_engine.py ← 포괄적 TDD 테스트 (NEW)
+```
+
+#### 다음 Step 준비사항
+- Step 15: 전략 통합 엔진
+  - AI 전략 + TP/SL + Trailing Stop 통합
+  - 최종 사용자 출력 생성
 
 ---
 

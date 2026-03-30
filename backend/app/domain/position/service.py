@@ -16,8 +16,11 @@ from app.domain.position.schemas import (
     PositionResponse,
     PositionWithPnL,
     TpSlEvaluationResponse,
+    TrailingStopConfig,
+    TrailingStopEvaluationResponse,
 )
 from app.domain.position.tp_sl_engine import TpSlEngine
+from app.domain.position.trailing_stop_engine import TrailingStopEngine
 
 # TODO: replace with real auth in future step
 STUB_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -33,11 +36,15 @@ class PositionService:
         self,
         repository: PositionRepositoryPort,
         calculator: PnLCalculator | None = None,
-        tp_sl_engine: TpSlEngine | None = None
+        tp_sl_engine: TpSlEngine | None = None,
+        trailing_stop_engine: TrailingStopEngine | None = None,
     ):
         self._repository = repository
         self._calculator = calculator or PnLCalculator()
         self._tp_sl_engine = tp_sl_engine or TpSlEngine()
+        self._trailing_stop_engine = (
+            trailing_stop_engine or TrailingStopEngine()
+        )
 
     async def create_position(self, data: PositionCreate) -> PositionResponse:
         """Create a new position with calculated avg_price."""
@@ -204,3 +211,96 @@ class PositionService:
         return (total_value / total_qty).quantize(
             Decimal("0.0001")
         )
+
+    async def evaluate_trailing_stop(
+        self,
+        position_id: UUID,
+        current_price: Decimal,
+        config: TrailingStopConfig,
+    ) -> TrailingStopEvaluationResponse:
+        """
+        Evaluate trailing stop and update HWM in DB.
+        Raises PositionNotFoundError if position not found.
+        """
+        position = await self._repository.get_by_id(position_id)
+        if not position:
+            raise PositionNotFoundError(position_id)
+
+        result = self._trailing_stop_engine.evaluate(
+            current_price=current_price,
+            high_water_mark=position.high_water_mark,
+            avg_price=position.avg_price,
+            config=config,
+        )
+
+        # Persist updated HWM to DB
+        hwm_updated = result.high_water_mark != (
+            position.high_water_mark or Decimal("0")
+        )
+        if hwm_updated:
+            await self._repository.update(
+                position_id,
+                {"high_water_mark": result.high_water_mark}
+            )
+
+        return TrailingStopEvaluationResponse(
+            position_id=position_id,
+            ticker=position.ticker,
+            triggered=result.triggered,
+            action=result.action,
+            high_water_mark=result.high_water_mark,
+            stop_price=result.stop_price,
+            current_price=current_price,
+            trail_distance_pct=result.trail_distance_pct,
+            distance_to_stop_pct=result.distance_to_stop_pct,
+            new_high_water_mark=result.high_water_mark,
+            hwm_updated=hwm_updated,
+        )
+
+    async def evaluate_full_position(
+        self,
+        position_id: UUID,
+        current_price: Decimal,
+        take_profit_levels: list[TakeProfitLevel],
+        stop_loss_levels: list[StopLossLevel],
+        trailing_config: TrailingStopConfig | None = None,
+    ) -> dict:
+        """
+        Combined evaluation: TP/SL + Trailing Stop.
+        Priority: SL → TP → Trailing Stop
+        Returns unified action recommendation.
+        """
+        # Step 1: TP/SL evaluation
+        tp_sl = await self.evaluate_tp_sl(
+            position_id, current_price,
+            take_profit_levels, stop_loss_levels
+        )
+
+        # If TP/SL triggered, no need for trailing stop
+        if tp_sl.action != "hold":
+            return {
+                "action": tp_sl.action,
+                "source": "tp_sl",
+                "tp_sl_result": tp_sl,
+                "trailing_result": None,
+            }
+
+        # Step 2: Trailing stop (only if TP/SL says hold)
+        if trailing_config:
+            trailing = await self.evaluate_trailing_stop(
+                position_id, current_price, trailing_config
+            )
+            if trailing.triggered:
+                return {
+                    "action": "full_exit",
+                    "source": "trailing_stop",
+                    "tp_sl_result": tp_sl,
+                    "trailing_result": trailing,
+                }
+
+        return {
+            "action": "hold",
+            "source": "none",
+            "tp_sl_result": tp_sl,
+            "trailing_result": None,
+        }

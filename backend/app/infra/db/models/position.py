@@ -57,6 +57,11 @@ class Position(Base):
     # Calculated average price (updated by application logic)
     avg_price: Mapped[Decimal | None] = mapped_column(DECIMAL(10, 4), nullable=True)
 
+    # High water mark for trailing stop (set to avg_price on first evaluation)
+    high_water_mark: Mapped[Decimal | None] = mapped_column(
+        DECIMAL(12, 4), nullable=True
+    )
+
     # Position status
     status: Mapped[PositionStatusEnum] = mapped_column(
         SQLAlchemyEnum(PositionStatusEnum, name="position_status_enum"),

@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.domain.ai.schemas import StopLossLevel, TakeProfitLevel
 
@@ -154,6 +155,76 @@ class TpSlEvaluationResponse(BaseModel):
     avg_price: Decimal
     current_price: Decimal
     total_quantity: Decimal
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class TrailingStopConfig(BaseModel):
+    """Configuration for trailing stop evaluation."""
+    mode: Literal["percentage", "atr"] = "percentage"
+    trail_pct: Decimal | None = Field(
+        default=None,
+        description="Trail distance as percentage (e.g. 10.0 = 10%)"
+    )
+    atr_multiplier: Decimal | None = Field(
+        default=None,
+        description="ATR multiplier (e.g. 2.0 = 2×ATR)"
+    )
+    atr_value: Decimal | None = Field(
+        default=None,
+        description="Current ATR value from IndicatorEngine"
+    )
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        if self.mode == "percentage" and self.trail_pct is None:
+            raise ValueError(
+                "trail_pct required for percentage mode"
+            )
+        if self.mode == "atr" and (
+            self.atr_multiplier is None
+            or self.atr_value is None
+        ):
+            raise ValueError(
+                "atr_multiplier and atr_value required "
+                "for ATR mode"
+            )
+        return self
+
+
+@dataclass
+class TrailingStopResult:
+    """Result of trailing stop evaluation."""
+    triggered: bool
+    action: str              # "full_exit" | "hold"
+    high_water_mark: Decimal
+    stop_price: Decimal
+    current_price: Decimal
+    trail_distance_pct: Decimal
+    distance_to_stop_pct: Decimal
+
+
+class TrailingStopEvaluationRequest(BaseModel):
+    """API request for trailing stop evaluation."""
+    position_id: UUID
+    current_price: Decimal = Field(gt=0)
+    config: TrailingStopConfig
+
+
+class TrailingStopEvaluationResponse(BaseModel):
+    """API response for trailing stop evaluation."""
+    position_id: UUID
+    ticker: str
+    triggered: bool
+    action: str
+    high_water_mark: Decimal
+    stop_price: Decimal
+    current_price: Decimal
+    trail_distance_pct: Decimal
+    distance_to_stop_pct: Decimal
+    new_high_water_mark: Decimal
+    hwm_updated: bool
 
     class Config:
         json_encoders = {Decimal: lambda v: float(v)}

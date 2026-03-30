@@ -6,9 +6,10 @@ Complete implementation with PositionService.
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from app.core.dependencies import get_position_service
+from app.domain.ai.schemas import StopLossLevel, TakeProfitLevel
 from app.domain.position.exceptions import PositionNotFoundError
 from app.domain.position.schemas import (
     PositionCreate,
@@ -17,6 +18,9 @@ from app.domain.position.schemas import (
     PositionWithPnL,
     TpSlEvaluationRequest,
     TpSlEvaluationResponse,
+    TrailingStopConfig,
+    TrailingStopEvaluationRequest,
+    TrailingStopEvaluationResponse,
 )
 from app.domain.position.service import PositionService
 
@@ -186,3 +190,60 @@ async def evaluate_tp_sl(
         )
     except PositionNotFoundError:
         raise HTTPException(status_code=404, detail="Position not found")
+
+
+@router.post(
+    "/{position_id}/trailing-stop",
+    response_model=TrailingStopEvaluationResponse
+)
+async def evaluate_trailing_stop(
+    position_id: UUID,
+    request: TrailingStopEvaluationRequest,
+    service: PositionService = Depends(get_position_service)
+):
+    """
+    Evaluate trailing stop and update high-water mark.
+    HWM persisted to DB after each evaluation.
+    """
+    try:
+        return await service.evaluate_trailing_stop(
+            position_id=position_id,
+            current_price=request.current_price,
+            config=request.config,
+        )
+    except PositionNotFoundError:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@router.post(
+    "/{position_id}/full-evaluation",
+    response_model=dict
+)
+async def full_position_evaluation(
+    position_id: UUID,
+    current_price: Decimal = Query(..., gt=0),
+    take_profit_levels: list[TakeProfitLevel] = Body(
+        default_factory=list
+    ),
+    stop_loss_levels: list[StopLossLevel] = Body(
+        default_factory=list
+    ),
+    trailing_config: TrailingStopConfig | None = Body(
+        default=None
+    ),
+    service: PositionService = Depends(get_position_service)
+):
+    """
+    Full evaluation: TP/SL + Trailing Stop combined.
+    Priority: SL → TP → Trailing Stop → Hold
+    """
+    try:
+        return await service.evaluate_full_position(
+            position_id=position_id,
+            current_price=current_price,
+            take_profit_levels=take_profit_levels,
+            stop_loss_levels=stop_loss_levels,
+            trailing_config=trailing_config,
+        )
+    except PositionNotFoundError:
+        raise HTTPException(status_code=404, detail="Not found")
