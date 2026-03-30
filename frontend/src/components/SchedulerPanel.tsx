@@ -7,16 +7,31 @@ interface SchedulerJob {
   trigger: string;
 }
 
+interface RecoveryResult {
+  recovered: boolean;
+  date: string | null;
+  error: string | null;
+}
+
+interface RecoveryResponse {
+  kr?: RecoveryResult;
+  us?: RecoveryResult;
+}
+
 interface SchedulerStatus {
   status: string;
   timezone: string;
   jobs: SchedulerJob[];
+  recovery_enabled?: boolean;
+  max_recovery_days?: number;
 }
 
 export const SchedulerPanel: React.FC = () => {
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryResult, setRecoveryResult] = useState<RecoveryResponse | null>(null);
 
   const fetchSchedulerStatus = async () => {
     try {
@@ -34,6 +49,29 @@ export const SchedulerPanel: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerRecovery = async (market?: string) => {
+    try {
+      setRecoveryLoading(true);
+      setRecoveryResult(null);
+      
+      const url = market 
+        ? `/api/v1/scheduler/recover?market=${market}`
+        : '/api/v1/scheduler/recover';
+      
+      const response = await fetch(url, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`Recovery failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      setRecoveryResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Recovery error');
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -78,6 +116,38 @@ export const SchedulerPanel: React.FC = () => {
       case 'kr_analysis': return '🇰🇷';
       case 'us_analysis': return '🇺🇸';
       default: return '⏰';
+    }
+  };
+
+  const formatRecoveryResult = (result: RecoveryResult, market: string): JSX.Element => {
+    if (result.recovered) {
+      return (
+        <div className="flex items-center space-x-2 text-green-600">
+          <span>✅</span>
+          <span>Recovered {result.date}</span>
+        </div>
+      );
+    } else if (result.error === 'stale') {
+      return (
+        <div className="flex items-center space-x-2 text-yellow-600">
+          <span>⏭️</span>
+          <span>Skipped (too old)</span>
+        </div>
+      );
+    } else if (result.error) {
+      return (
+        <div className="flex items-center space-x-2 text-red-600">
+          <span>❌</span>
+          <span>Failed: {result.error}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center space-x-2 text-gray-600">
+          <span>⏭️</span>
+          <span>None found</span>
+        </div>
+      );
     }
   };
 
@@ -143,6 +213,65 @@ export const SchedulerPanel: React.FC = () => {
             <span className="text-sm text-gray-800">{schedulerStatus.timezone}</span>
           </div>
         </div>
+
+        {/* Recovery Section */}
+        {schedulerStatus.recovery_enabled && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium mb-4">🔄 Missed Execution Recovery</h3>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-blue-800">
+                  Max Recovery Days: {schedulerStatus.max_recovery_days}
+                </span>
+                <button
+                  onClick={() => triggerRecovery()}
+                  disabled={recoveryLoading}
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {recoveryLoading ? '⏳ Checking...' : '🔍 Check Both Markets'}
+                </button>
+              </div>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => triggerRecovery('KR')}
+                  disabled={recoveryLoading}
+                  className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 rounded disabled:opacity-50 transition-colors"
+                >
+                  🇰🇷 Check KR Only
+                </button>
+                <button
+                  onClick={() => triggerRecovery('US')}
+                  disabled={recoveryLoading}
+                  className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 rounded disabled:opacity-50 transition-colors"
+                >
+                  🇺🇸 Check US Only
+                </button>
+              </div>
+            </div>
+
+            {recoveryResult && (
+              <div className="bg-gray-50 border rounded-lg p-4">
+                <h4 className="font-medium mb-3">Recovery Result:</h4>
+                <div className="space-y-2">
+                  {recoveryResult.kr && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">🇰🇷 KR Market:</span>
+                      {formatRecoveryResult(recoveryResult.kr, 'KR')}
+                    </div>
+                  )}
+                  {recoveryResult.us && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">🇺🇸 US Market:</span>
+                      {formatRecoveryResult(recoveryResult.us, 'US')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <h3 className="text-lg font-medium mb-4">Scheduled Jobs</h3>

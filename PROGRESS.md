@@ -12,11 +12,11 @@
 | Phase 1: 데이터 레이어 | Step 5~7 | 3/3 ✅ |
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
 | Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
-| Phase 4: 스케줄러 | Step 16~17 | 1/2 ✅ |
+| Phase 4: 스케줄러 | Step 16~17 | 2/2 ✅ Phase 4 Complete |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 0/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 16 / 27 Steps**
+**전체 진행률: 17 / 27 Steps**
 
 ---
 
@@ -1636,9 +1636,109 @@ US Market: 화-토 07:10 KST
 
 ---
 
-### ⬜ Step 17 — Missed Execution 복구 로직
+### ✅ Step 17 — Missed Execution 복구 로직 (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-30
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] RecoveryManager (check_and_recover, _recover_market)
+- [x] 복구 윈도우: MAX_RECOVERY_DAYS=3 (설정 가능)
+- [x] 가장 최근 미실행 항목만 복구 (오래된 것 건너뜀)
+- [x] Staleness 컷오프: 3일 이상 된 미실행 → 포기
+- [x] 부분 실행 복구: AI 응답 캐시 시 AI 호출 생략
+- [x] 마켓 완전 독립: KR 실패 → US 복구 계속 진행
+- [x] FastAPI lifespan 통합 (앱 시작 시 자동 복구 체크)
+- [x] date_override 파라미터 추가 (KR/US 잡 함수)
+- [x] POST /api/v1/scheduler/recover 수동 복구 엔드포인트
+- [x] 통합 테스트: 실제 DB로 복구 감지 검증
+- [x] React SchedulerPanel 복구 섹션 추가
+
+#### Phase 4 완료 요약
+- Step 16: APScheduler (KR/US 독립 스케줄) ✅
+- Step 17: Missed Execution 복구 로직 ✅
+→ Phase 5 (UX 및 안전 장치) 진입 준비 완료
+
+#### 복구 흐름
+```
+앱 시작
+  → analysis_log.get_unexecuted(market, date) 확인
+  → 미실행 발견 + 3일 이내
+    → ai_response 캐시 확인
+      → 캐시 있음: skip_ai_if_cached=True로 잡 실행
+      → 캐시 없음: 전체 파이프라인 재실행
+  → 미실행 없음 또는 3일 초과: 건너뜀
+```
+
+#### 테스트 결과
+```bash
+✅ Unit Tests: 14 recovery scenarios (TDD Red→Green)
+  - No missed executions
+  - Single missed KR execution  
+  - Multiple missed (most recent only)
+  - Staleness cutoff (3-day boundary)
+  - Partial execution (AI cached)
+  - Market isolation (KR/US independent)
+  - US market date handling
+
+✅ Integration Tests: 8 scenarios with real DB
+  - Real AnalysisLogRepository operations
+  - Boundary testing (exactly 3 days)
+  - Both markets independence
+  - Cache detection accuracy
+
+✅ Quality Checks:
+  - RecoveryManager imports successfully
+  - Settings max_recovery_days: 3
+  - Function signatures updated correctly
+  - Ruff linting: 0 errors
+```
+
+#### 파일 구조
+```
+backend/app/scheduler/
+├── __init__.py
+├── jobs/
+│   ├── __init__.py
+│   ├── kr_analysis_job.py    ← date_override, skip_ai_if_cached 추가
+│   └── us_analysis_job.py    ← date_override, skip_ai_if_cached 추가
+├── runner.py                 
+├── setup.py                  
+└── recovery.py               ← NEW: RecoveryManager
+
+backend/tests/unit/scheduler/
+├── __init__.py
+├── test_runner.py            
+├── test_kr_analysis_job.py   
+├── test_us_analysis_job.py   
+└── test_recovery.py          ← NEW: 14 scenarios
+
+backend/tests/integration/scheduler/
+├── __init__.py
+└── test_recovery_integration.py ← NEW: 8 scenarios
+```
+
+#### API 확장
+```bash
+GET  /api/v1/scheduler/status  ← recovery_enabled, max_recovery_days 추가
+POST /api/v1/scheduler/recover ← NEW: ?market=KR|US|null
+```
+
+#### UI 확장
+```typescript
+SchedulerPanel.tsx ← Recovery 섹션 추가
+  - "Manual Recovery" 버튼들
+  - 복구 결과 표시:
+    KR: ✅ Recovered 2024-01-02 | ⏭️ None | ❌ Failed
+    US: ✅ Recovered 2024-01-01 | ⏭️ None | ❌ Failed
+  - "Max Recovery Days: 3" 설정 표시
+```
+
+#### 다음 Step 준비사항
+- Step 18: 알림 시스템
+  - 전략 변경 시 사용자 알림
+  - TP/SL 임계값 도달 알림
+  - Gmail MCP 활용 가능
 
 ---
 

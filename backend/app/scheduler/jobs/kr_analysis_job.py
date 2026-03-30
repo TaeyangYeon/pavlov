@@ -3,20 +3,27 @@ KR Market Daily Analysis Job.
 Runs KR stock analysis after KOSPI market close.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 import pytz
 
 from app.core.config import get_settings
 from app.core.container import get_container
-from app.infra.db.session import AsyncSessionLocal
+from app.infra.db.base import AsyncSessionLocal
 
 KST = pytz.timezone("Asia/Seoul")
 
 
-async def run_kr_analysis() -> None:
+async def run_kr_analysis(
+    date_override: date | None = None,
+    skip_ai_if_cached: bool = False,
+) -> None:
     """
     Run KR market daily analysis job.
+    
+    Args:
+        date_override: if set, use this date instead of today (KST).
+        skip_ai_if_cached: if True, skip AI call (use cached ai_response from DB).
     
     Flow:
     1. Check if already executed today (idempotency)
@@ -32,8 +39,13 @@ async def run_kr_analysis() -> None:
         print("⚠️  No KR tickers configured")
         return
 
-    # Use current KST date for KR market
-    analysis_date = date.today()
+    # Use date_override if provided, otherwise current KST date for KR market
+    if date_override:
+        analysis_date = date_override
+    else:
+        KST = pytz.timezone("Asia/Seoul")
+        kst_now = datetime.now(KST)
+        analysis_date = kst_now.date()
 
     async with AsyncSessionLocal() as session:
         container = get_container()

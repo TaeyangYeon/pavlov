@@ -57,6 +57,9 @@ class Settings(BaseSettings):
             "AMZN", "NVDA",
         ]
     )
+    
+    # Missed Execution Recovery Configuration
+    max_recovery_days: int = Field(default=3)
 
     # External APIs (optional for future use)
     ALPHA_VANTAGE_API_KEY: str | None = None

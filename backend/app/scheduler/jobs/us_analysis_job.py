@@ -3,20 +3,27 @@ US Market Daily Analysis Job.
 Runs US stock analysis using previous day's NYSE data.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytz
 
 from app.core.config import get_settings
 from app.core.container import get_container
-from app.infra.db.session import AsyncSessionLocal
+from app.infra.db.base import AsyncSessionLocal
 
 KST = pytz.timezone("Asia/Seoul")
 
 
-async def run_us_analysis() -> None:
+async def run_us_analysis(
+    date_override: date | None = None,
+    skip_ai_if_cached: bool = False,
+) -> None:
     """
     Run US market daily analysis job.
+    
+    Args:
+        date_override: if set, use this date instead of yesterday.
+        skip_ai_if_cached: if True, skip AI call (use cached ai_response from DB).
     
     Uses PREVIOUS DAY's date for NYSE data since US job runs at 07:10 KST
     when NYSE hasn't opened yet for current day.
@@ -34,8 +41,14 @@ async def run_us_analysis() -> None:
         print("⚠️  No US tickers configured")
         return
 
-    # Use PREVIOUS DAY for US market data (07:10 KST is before NYSE open)
-    analysis_date = date.today() - timedelta(days=1)
+    # Use date_override if provided, otherwise PREVIOUS DAY for US market data 
+    # (07:10 KST is before NYSE open)
+    if date_override:
+        analysis_date = date_override
+    else:
+        KST = pytz.timezone("Asia/Seoul")
+        kst_now = datetime.now(KST)
+        analysis_date = (kst_now - timedelta(days=1)).date()
 
     async with AsyncSessionLocal() as session:
         container = get_container()

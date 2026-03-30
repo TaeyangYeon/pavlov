@@ -4,6 +4,9 @@ from fastapi import FastAPI
 from app.api.middleware.cors import setup_cors_middleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.container import get_container
+from app.infra.db.base import AsyncSessionLocal
+from app.scheduler.recovery import RecoveryManager
 from app.scheduler.scheduler import get_scheduler_manager
 
 settings = get_settings()
@@ -11,16 +14,49 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI lifespan manager for scheduler startup/shutdown."""
-    # Startup
-    scheduler_manager = get_scheduler_manager()
-    scheduler_manager.start()
+    """
+    FastAPI lifespan:
+    1. Run missed execution recovery
+    2. Start scheduler
+    3. App runs
+    4. Stop scheduler
+    """
+    # Step 1: Recovery on startup
+    print("[App] Checking for missed executions...")
+    try:
+        async with AsyncSessionLocal() as session:
+            container = get_container()
+            kr_repo = container.analysis_log_repository(session)
+            us_repo = container.analysis_log_repository(session)
+            recovery = RecoveryManager(kr_repo, us_repo)
+            results = await recovery.check_and_recover()
+            kr_result = results["kr"]
+            us_result = results["us"]
+            print(
+                f"[App] Recovery complete — "
+                f"KR: {'recovered' if kr_result['recovered'] else 'none'}, "
+                f"US: {'recovered' if us_result['recovered'] else 'none'}"
+            )
+    except Exception as e:
+        print(f"[App] Recovery check failed (non-fatal): {e}")
+
+    # Step 2: Start scheduler
+    if settings.scheduler_enabled:
+        scheduler_manager = get_scheduler_manager()
+        scheduler_manager.start()
+        print("[App] Scheduler started")
     
     try:
-        yield
+        yield  # App is running
     finally:
-        # Shutdown
-        scheduler_manager.shutdown()
+        # Step 3: Stop scheduler
+        if settings.scheduler_enabled:
+            scheduler_manager = get_scheduler_manager()
+            try:
+                scheduler_manager.shutdown()
+                print("[App] Scheduler stopped")
+            except Exception as e:
+                print(f"[App] Error stopping scheduler: {e}")
 
 
 app = FastAPI(
