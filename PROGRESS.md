@@ -14,9 +14,9 @@
 | Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
 | Phase 4: 스케줄러 | Step 16~17 | 2/2 ✅ Phase 4 Complete |
 | Phase 5: UX 및 안전 장치 | Step 18~22 | 5/5 ✅ Phase 5 Complete |
-| Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
+| Phase 6: 검증 및 배포 | Step 23~27 | 1/5 |
 
-**전체 진행률: 22 / 27 Steps**
+**전체 진행률: 23 / 27 Steps**
 
 ---
 
@@ -2104,11 +2104,135 @@ pytest 설정 문제로 인해 다음 방법으로 동등한 검증 수행:
 ```
 
 #### 다음 Step 준비사항
-- Step 23: 에러 처리 강화 (Phase 6 시작)
+- Step 24: 단위/통합 테스트 전수 검증
 
 ---
 
-### ⬜ Step 23 — 에러 처리 강화
+### ✅ Step 23 — 에러 처리 강화 (Phase 6 시작) (완료)
+
+**날짜**: 2026-03-31
+**소요 시간**: 약 2시간
+**담당**: Claude Code
+
+#### 완료된 작업
+
+- [x] 구조화된 예외 계층 구조 정의 (PavlovBaseException)
+- [x] Result[T] 모나드 패턴 구현 (graceful error handling)
+- [x] 포괄적 단위 테스트 작성 (TDD Red phase)
+- [x] 시장 데이터 검증기 구현 (OHLCV validation)
+- [x] 시장 어댑터에 timeout 및 fallback 추가
+- [x] 데이터베이스 헬스 체커 구현
+- [x] 스케줄러 작업 타임아웃 가드 추가 (15분 제한)
+- [x] 전역 FastAPI 에러 핸들러 구현
+- [x] 포괄적 헬스 엔드포인트 구현 (Kubernetes ready/live)
+- [x] FastAPI 생명주기에 헬스 체크 통합
+- [x] 시장 데이터 검증기를 스케줄러 작업에 통합
+
+#### 구현된 주요 컴포넌트
+
+**1. 예외 계층 구조** (`app/domain/shared/exceptions.py`):
+```python
+class PavlovBaseException(Exception):
+    def __init__(self, message: str, code: str = "PAVLOV_ERROR", details: dict | None = None)
+    def to_dict(self) -> dict
+
+class ExternalServiceError(PavlovBaseException)  # 502 Bad Gateway
+class DataValidationError(PavlovBaseException)   # 400 Bad Request  
+class DatabaseError(PavlovBaseException)         # 503 Service Unavailable
+class SchedulerError(PavlovBaseException)        # 500 Internal Server Error
+class ConfigurationError(PavlovBaseException)    # 500 Internal Server Error
+```
+
+**2. Result 모나드** (`app/domain/shared/result.py`):
+```python
+class Result(Generic[T]):
+    @classmethod
+    def ok(cls, value: T) -> "Result[T]"
+    
+    @classmethod
+    def fail(cls, error: str) -> "Result[T]"
+    
+    def map(self, func: Callable[[T], U]) -> "Result[U]"
+    def unwrap(self) -> T
+    def unwrap_or(self, default: T) -> T
+```
+
+**3. 시장 데이터 검증기** (`app/domain/market/validator.py`):
+- OHLC 일관성 검증 (High ≥ Low, High ≥ Open/Close, Low ≤ Open/Close)
+- 양수 가격 검증
+- NaN/Infinite 값 검증  
+- 필수 필드 존재 검증
+- 데이터 정규화 (가격 4자리, 볼륨 정수)
+
+**4. 향상된 어댑터** (`app/infra/market/*_adapter.py`):
+- configurable timeout (기본 30초)
+- `fetch_daily_ohlcv_safe()` Result 패턴
+- 자동 데이터 검증 및 정규화
+- 타임아웃 시 구체적 오류 메시지
+
+**5. 데이터베이스 헬스 체커** (`app/infra/db/health_checker.py`):
+- 연결 풀 상태 모니터링 
+- 지연시간 측정
+- 재시도 로직 (지수 백오프)
+- 앱 시작 시 DB 가용성 검증
+
+**6. 스케줄러 타임아웃 가드** (`app/scheduler/runner.py`):
+- 15분 기본 타임아웃
+- 동시 실행 방지
+- 재시도 로직 (지수 백오프)
+- 작업 통계 수집
+- Dead Letter Queue
+
+**7. 전역 에러 핸들러** (`app/api/middleware/error_handlers.py`):
+- 구조화된 JSON 에러 응답
+- 상관 관계 ID (correlation ID)
+- 민감한 정보 제거 (DB 연결 세부사항)
+- HTTP 상태 코드 매핑
+
+**8. 포괄적 헬스 엔드포인트** (`app/api/v1/endpoints/health.py`):
+- `/health` - 간단한 가용성 체크
+- `/health/detailed` - 전체 시스템 상태
+- `/health/readiness` - Kubernetes readiness probe
+- 각 컴포넌트별 상태 (DB, 외부 서비스, 스케줄러)
+
+#### 테스트 결과
+
+```bash
+🧪 TESTING STEP 23 ERROR HANDLING IMPLEMENTATION
+============================================================
+Testing MarketDataValidator...
+✅ Valid data passed: AAPL = 152.0
+✅ Caught validation error: close - close price validation
+
+Testing Result monad...
+✅ Success result: test_value
+✅ Failure result: test_error
+✅ Success check: True
+✅ Failure check: True
+
+Testing exception hierarchy...
+✅ Base exception code: TEST_CODE
+✅ Data validation field: price
+✅ Market fetch ticker: AAPL (US)
+
+🎉 ALL CORE ERROR HANDLING COMPONENTS WORKING!
+✅ Market data validation: OPERATIONAL
+✅ Result monad: OPERATIONAL
+✅ Exception hierarchy: OPERATIONAL
+✅ Database health checker: IMPLEMENTED
+✅ Scheduler timeout guard: IMPLEMENTED
+✅ FastAPI error handlers: IMPLEMENTED
+✅ Comprehensive health endpoint: IMPLEMENTED
+
+🔥 Step 23 Error Handling implementation COMPLETE!
+```
+
+#### 다음 Step 준비사항
+- Step 24: 단위/통합 테스트 전수 검증
+
+---
+
+### ⬜ Step 24 — 단위/통합 테스트 전수 검증
 
 **상태**: 대기 중
 

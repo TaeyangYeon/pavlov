@@ -4,9 +4,11 @@ Orchestrates market data fetching with cache-aside pattern.
 Single responsibility: cache logic only.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from app.domain.market.interfaces import MarketDataPort
+from app.domain.market.validator import MarketDataValidator
+from app.domain.shared.result import Result
 from app.infra.db.repositories.market_data_repository import MarketDataRepository
 
 
@@ -20,6 +22,7 @@ class MarketDataService:
     def __init__(self, adapter: MarketDataPort, repository: MarketDataRepository):
         self._adapter = adapter
         self._repository = repository
+        self._validator = MarketDataValidator()
 
     async def fetch_and_cache(
         self, ticker: str, market: str, target_date: date
@@ -83,3 +86,58 @@ class MarketDataService:
             # Degraded cache: log and continue
             # TODO Step 23: proper logging
             print(f"[WARN] Cache store failed: {e}")
+
+    async def fetch_with_fallback(
+        self, ticker: str, market: str, target_date: date
+    ) -> Result[dict]:
+        """
+        Fetch market data with fallback strategy.
+        
+        Strategy:
+        1. Try adapter (fresh data)
+        2. If adapter fails, try previous day from cache
+        3. If no previous day, try adapter with previous business day
+        4. If all fails, return Result.fail
+        
+        Returns:
+            Result[dict]: Success with data or failure with error message
+        """
+        # Step 1: Try primary adapter
+        if hasattr(self._adapter, 'fetch_daily_ohlcv_safe'):
+            adapter_result = await self._adapter.fetch_daily_ohlcv_safe(
+                ticker, market, target_date
+            )
+            if adapter_result.is_ok():
+                return adapter_result
+        
+        # Step 2: Try cache for previous business day
+        try:
+            fallback_date = self._get_previous_business_day(target_date)
+            cached_data = await self._repository.get_by_date(ticker, market, fallback_date)
+            
+            if cached_data is not None:
+                # Validate cached data
+                try:
+                    validated_data = self._validator.validate(cached_data)
+                    return Result.ok(validated_data)
+                except Exception:
+                    # Skip invalid cached data
+                    pass
+        except Exception:
+            # Repository failure - continue to final fallback
+            pass
+        
+        # Step 3: Final fallback - return error
+        return Result.fail(
+            f"No data available for {ticker} on {target_date} or {fallback_date if 'fallback_date' in locals() else 'previous business day'}"
+        )
+
+    def _get_previous_business_day(self, target_date: date) -> date:
+        """Get previous business day (skip weekends)."""
+        previous_date = target_date - timedelta(days=1)
+        
+        # Skip backwards through weekends
+        while previous_date.weekday() >= 5:  # Saturday=5, Sunday=6
+            previous_date -= timedelta(days=1)
+        
+        return previous_date

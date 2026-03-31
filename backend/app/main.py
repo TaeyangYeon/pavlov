@@ -1,16 +1,19 @@
 from contextlib import asynccontextmanager
+from uuid import UUID
+
 from fastapi import FastAPI
+from sqlalchemy import select
 
 from app.api.middleware.cors import setup_cors_middleware
+from app.api.middleware.error_handlers import setup_error_handlers
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.container import get_container
 from app.infra.db.base import AsyncSessionLocal
+from app.infra.db.health_checker import StartupHealthChecker
+from app.infra.db.models.user import User
 from app.scheduler.recovery import RecoveryManager
 from app.scheduler.scheduler import get_scheduler_manager
-from app.infra.db.models.user import User
-from sqlalchemy import select
-from uuid import UUID
 
 settings = get_settings()
 
@@ -20,14 +23,26 @@ STUB_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    FastAPI lifespan:
-    0. Ensure stub user exists
-    1. Run missed execution recovery
-    2. Start scheduler
-    3. App runs
-    4. Stop scheduler
+    FastAPI lifespan with health checks and error handling:
+    0. Database health check (startup gate)
+    1. Ensure stub user exists
+    2. Run missed execution recovery
+    3. Start scheduler
+    4. App runs
+    5. Stop scheduler
     """
-    # Step 0: Ensure stub user exists
+    # Step 0: Database health check (startup gate)
+    print("[App] Performing startup health checks...")
+    try:
+        startup_health_checker = StartupHealthChecker(max_startup_retries=10, retry_delay=2)
+        await startup_health_checker.ensure_database_ready()
+        print("[App] ✅ Database health check passed")
+    except Exception as e:
+        print(f"[App] ❌ Database health check failed: {e}")
+        print("[App] Application startup aborted due to unhealthy database")
+        raise  # Block application startup
+
+    # Step 1: Ensure stub user exists
     try:
         async with AsyncSessionLocal() as session:
             stmt = select(User).where(
@@ -46,7 +61,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[App] Stub user check failed: {e}")
 
-    # Step 1: Recovery on startup
+    # Step 2: Recovery on startup
     print("[App] Checking for missed executions...")
     try:
         async with AsyncSessionLocal() as session:
@@ -65,16 +80,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[App] Recovery check failed (non-fatal): {e}")
 
-    # Step 2: Start scheduler
+    # Step 3: Start scheduler
     if settings.scheduler_enabled:
         scheduler_manager = get_scheduler_manager()
         scheduler_manager.start()
         print("[App] Scheduler started")
-    
+
+    print("[App] 🚀 Application startup complete - all systems operational")
+
     try:
         yield  # App is running
     finally:
-        # Step 3: Stop scheduler
+        # Step 4: Stop scheduler
+        print("[App] 🛑 Application shutdown initiated")
         if settings.scheduler_enabled:
             scheduler_manager = get_scheduler_manager()
             try:
@@ -82,6 +100,7 @@ async def lifespan(app: FastAPI):
                 print("[App] Scheduler stopped")
             except Exception as e:
                 print(f"[App] Error stopping scheduler: {e}")
+        print("[App] Application shutdown complete")
 
 
 app = FastAPI(
@@ -94,6 +113,9 @@ app = FastAPI(
 
 # Set up CORS middleware
 setup_cors_middleware(app)
+
+# Set up global error handlers
+setup_error_handlers(app)
 
 # Include API v1 router
 app.include_router(api_router, prefix="/api/v1")
