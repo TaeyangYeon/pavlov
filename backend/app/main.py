@@ -8,19 +8,44 @@ from app.core.container import get_container
 from app.infra.db.base import AsyncSessionLocal
 from app.scheduler.recovery import RecoveryManager
 from app.scheduler.scheduler import get_scheduler_manager
+from app.infra.db.models.user import User
+from sqlalchemy import select
+from uuid import UUID
 
 settings = get_settings()
+
+STUB_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     FastAPI lifespan:
+    0. Ensure stub user exists
     1. Run missed execution recovery
     2. Start scheduler
     3. App runs
     4. Stop scheduler
     """
+    # Step 0: Ensure stub user exists
+    try:
+        async with AsyncSessionLocal() as session:
+            stmt = select(User).where(
+                User.id == STUB_USER_ID
+            )
+            result = await session.execute(stmt)
+            if not result.scalar_one_or_none():
+                stub_user = User(
+                    id=STUB_USER_ID,
+                    email="stub@pavlov.local",
+                    is_active=True,
+                )
+                session.add(stub_user)
+                await session.commit()
+                print("[App] Stub user created")
+    except Exception as e:
+        print(f"[App] Stub user check failed: {e}")
+
     # Step 1: Recovery on startup
     print("[App] Checking for missed executions...")
     try:

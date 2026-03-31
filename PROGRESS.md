@@ -13,10 +13,10 @@
 | Phase 2: 필터 및 AI | Step 8~10 | 3/3 ✅ |
 | Phase 3: 포지션 관리 | Step 11~15 | 5/5 ✅ |
 | Phase 4: 스케줄러 | Step 16~17 | 2/2 ✅ Phase 4 Complete |
-| Phase 5: UX 및 안전 장치 | Step 18~22 | 1/5 |
+| Phase 5: UX 및 안전 장치 | Step 18~22 | 2/5 |
 | Phase 6: 검증 및 배포 | Step 23~27 | 0/5 |
 
-**전체 진행률: 18 / 27 Steps**
+**전체 진행률: 19 / 27 Steps**
 
 ---
 
@@ -1830,9 +1830,63 @@ alembic/versions/
 
 ---
 
-### ⬜ Step 19 — API 키 관리 (암호화)
+### ✅ Step 19 — API 키 관리 (암호화) (완료)
 
-**상태**: 대기 중
+**날짜**: 2026-03-31
+**담당**: Claude Code
+
+#### 완료된 작업
+- [x] EncryptionService (Fernet AES-128-CBC + HMAC)
+- [x] 키 버전 관리 JSON 포맷 {"v":1, "ciphertext":"..."}
+- [x] EncryptionConfigError, EncryptionError, InvalidAPIKeyError, UserNotFoundError
+- [x] UserRepository (store_api_key: 암호화 저장, get_api_key: 복호화 반환)
+- [x] UserService (API 키 검증 → 저장 → 조회)
+- [x] API 키 저장 전 Anthropic 검증
+- [x] Container 업데이트 (DB 키 우선, env 키 폴백, Mock 폴백)
+- [x] POST /api/v1/users/me/api-key (검증 + 저장)
+- [x] GET /api/v1/users/me/api-key/status (마스킹 표시)
+- [x] DELETE /api/v1/users/me/api-key
+- [x] 앱 시작 시 stub 유저 자동 생성
+
+#### 보안 설계
+- 저장: Fernet 암호화 → DB 저장 (plaintext 절대 저장 안 함)
+- 조회: DB → Fernet 복호화 → 서비스 레이어 전달
+- 키 버전: {"v":1, ...} 형식으로 향후 키 교체 지원
+- ENCRYPTION_KEY: 환경변수 전용 (코드에 절대 하드코딩 금지)
+- 검증: 저장 전 Anthropic API 실제 호출로 유효성 확인
+
+#### API 키 우선순위
+1. DB 저장 사용자 키 (암호화)
+2. 환경변수 ANTHROPIC_API_KEY
+3. MockAIClient (개발/테스트)
+
+#### 테스트 결과
+```
+Testing encryption service...
+✅ Encrypt works, length: 146
+✅ Same plaintext produces different ciphertext: True
+✅ Decrypt works: True
+✅ Both decrypt to same plaintext: True
+✅ Version field: True
+✅ Ciphertext field exists: True
+🎉 All encryption tests passed!
+Example ciphertext format: {"v": 1, "ciphertext": "gAAAAABpyyUzy2kiM3pZrI4WXvbwS-IaQYxg4cKlYOSsRnB0Yc3aun93...
+```
+
+#### 코드 품질 검사
+```
+ruff check backend/app/infra/crypto/ backend/app/domain/user/
+All checks passed!
+
+Security check: grep -r "api_key" backend/app --include="*.py" | grep -v "encrypted" | grep -v "test" | grep -v "config" | grep -v "schema"
+✅ No plaintext API key storage outside config/tests
+```
+
+#### 다음 Step 준비사항
+- Step 20: UI 대시보드 완성
+  - React ApiKeySettings 컴포넌트
+  - 전체 기능 통합 대시보드
+  - 실시간 포지션 현황
 
 ---
 

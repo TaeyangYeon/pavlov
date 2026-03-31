@@ -39,6 +39,9 @@ class Settings(BaseSettings):
 
     # AI API
     ANTHROPIC_API_KEY: str = Field(default="")
+    
+    # Encryption
+    ENCRYPTION_KEY: str = Field(default="")
 
     # Scheduler Configuration
     scheduler_enabled: bool = Field(default=True)

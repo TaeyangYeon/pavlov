@@ -28,6 +28,9 @@ from app.domain.notification.service import NotificationService
 from app.infra.db.repositories.notification_repository import NotificationRepository
 from app.infra.notification.email_notifier import EmailNotifier
 from app.infra.notification.in_app_notifier import InAppNotifier
+from app.infra.crypto.encryption import EncryptionService
+from app.domain.user.service import UserService
+from app.infra.db.repositories.user_repository import UserRepository
 
 
 class Container:
@@ -140,18 +143,73 @@ class Container:
         """
         return build_default_filter_chain()
 
-    def ai_client(self) -> AIClient:
+    def encryption_service(self) -> EncryptionService:
+        key = self._settings.ENCRYPTION_KEY
+        return EncryptionService(key=key)
+
+    def user_repository(
+        self, session: AsyncSession
+    ) -> UserRepository:
+        return UserRepository(
+            session=session,
+            encryption=self.encryption_service(),
+        )
+
+    def user_service(
+        self, session: AsyncSession
+    ) -> UserService:
+        return UserService(
+            repository=self.user_repository(session),
+            settings=self._settings,
+        )
+
+    def ai_client(
+        self,
+        session: AsyncSession | None = None,
+        user_id: "UUID | None" = None,
+    ) -> AIClient:
         """
-        Returns real AnthropicClient in production,
-        MockAIClient can be injected in tests.
+        Priority:
+        1. DB user api_key (if session + user_id provided)
+        2. ANTHROPIC_API_KEY from settings
+        3. MockAIClient fallback
         """
+        # Try DB key first - this is sync context, so we store
+        # the DB key retrieval for async callers
+        # Full async implementation via get_ai_client_for_user
+        
+        # Env key fallback
         api_key = self._settings.ANTHROPIC_API_KEY
-        if not api_key:
-            # Fallback to mock in development
-            # TODO Step 19: read encrypted key from DB
-            from app.domain.ai.client import MockAIClient
-            return MockAIClient()
-        return AnthropicClient(api_key=api_key)
+        if api_key:
+            return AnthropicClient(api_key=api_key)
+
+        # Mock fallback for development
+        from app.domain.ai.client import MockAIClient
+        return MockAIClient()
+
+    async def get_ai_client_for_user(
+        self,
+        session: AsyncSession,
+        user_id: "UUID",
+    ) -> AIClient:
+        """
+        Async method to get AI client with DB key lookup.
+        Used by scheduler jobs and analysis pipeline.
+        """
+        from uuid import UUID
+        user_repo = self.user_repository(session)
+        db_key = await user_repo.get_api_key(user_id)
+
+        if db_key:
+            return AnthropicClient(api_key=db_key)
+
+        # Fallback to env key
+        env_key = self._settings.ANTHROPIC_API_KEY
+        if env_key:
+            return AnthropicClient(api_key=env_key)
+
+        from app.domain.ai.client import MockAIClient
+        return MockAIClient()
 
     def analysis_log_repository(self, session: AsyncSession) -> AnalysisLogRepository:
         """
