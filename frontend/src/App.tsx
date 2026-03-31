@@ -4,6 +4,7 @@ import { Dashboard } from './components/dashboard'
 import { PositionsPage } from './components/positions'
 import { StrategyPage } from './components/strategy'
 import { NotificationsPage, SchedulerPage } from './components/notifications'
+import { BehaviorDashboard } from './components/behavior/BehaviorDashboard'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
@@ -16,6 +17,8 @@ function App() {
         return <PositionsPage />
       case 'strategy':
         return <StrategyPage />
+      case 'behavior':
+        return <BehaviorDashboard />
       case 'notifications':
         return <NotificationsPage />
       case 'scheduler':

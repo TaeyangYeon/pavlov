@@ -4,7 +4,7 @@ API v1 router aggregating all v1 endpoints.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, positions, strategy, scheduler, users
+from app.api.v1.endpoints import health, positions, strategy, scheduler, users, decisions, behavior
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(positions.router, prefix="")
 api_router.include_router(strategy.router, prefix="")
 api_router.include_router(scheduler.router, prefix="/scheduler")
 api_router.include_router(users.router, prefix="")
+api_router.include_router(decisions.router, prefix="")
+api_router.include_router(behavior.router, prefix="")

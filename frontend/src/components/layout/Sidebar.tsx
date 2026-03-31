@@ -9,6 +9,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
     { id: 'dashboard', label: '대시보드', icon: '📊' },
     { id: 'positions', label: '포지션', icon: '💼' },
     { id: 'strategy', label: '전략', icon: '🎯' },
+    { id: 'behavior', label: '행동 분석', icon: '🧠' },
     { id: 'notifications', label: '알림', icon: '🔔' },
     { id: 'scheduler', label: '스케줄러', icon: '⏰' },
   ]

@@ -1,6 +1,10 @@
 import React, { useState } from 'react'
 import type { PositionEntry } from '../../types'
 import { usePositions } from '../../hooks/usePositions'
+import { checkCoolingOff } from '../../api/behavior'
+import { recordDecision } from '../../api/decisions'
+import { CoolingOffWarning } from '../behavior/CoolingOffWarning'
+import type { CoolingOffStatus } from '../../api/behavior'
 
 export function PositionForm() {
   const { createPosition } = usePositions()
@@ -15,6 +19,8 @@ export function PositionForm() {
   ])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [coolingOffStatus, setCoolingOffStatus] = useState<CoolingOffStatus | null>(null)
+  const [showCoolingOffWarning, setShowCoolingOffWarning] = useState(false)
 
   const calculateAvgPrice = (): number | null => {
     const validEntries = entries.filter(
@@ -58,11 +64,30 @@ export function PositionForm() {
     setEntries(newEntries)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const checkCoolingOffAndSubmit = async () => {
     setError(null)
     setIsSubmitting(true)
 
+    try {
+      // Step 1: Check cooling-off period
+      const coolingOffCheck = await checkCoolingOff(ticker.trim().toUpperCase())
+      
+      if (coolingOffCheck.is_within_cooling_off) {
+        setCoolingOffStatus(coolingOffCheck)
+        setShowCoolingOffWarning(true)
+        setIsSubmitting(false)
+        return
+      }
+
+      // No cooling-off warning, proceed directly
+      await submitPosition(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '냉각 기간 확인에 실패했습니다')
+      setIsSubmitting(false)
+    }
+  }
+
+  const submitPosition = async (overrideCoolingOff: boolean = false) => {
     try {
       const validEntries = entries.filter(
         e => e.price && e.quantity && Number(e.price) > 0 && Number(e.quantity) > 0
@@ -81,6 +106,23 @@ export function PositionForm() {
         entered_at: new Date(e.entered_at).toISOString()
       }))
 
+      // Step 2: Record decision for behavioral analysis
+      const totalQuantity = validEntries.reduce((sum, e) => sum + Number(e.quantity), 0)
+      const avgPrice = calculateAvgPrice()
+      
+      if (avgPrice) {
+        await recordDecision({
+          ticker: ticker.trim().toUpperCase(),
+          market,
+          action: 'buy',
+          price: avgPrice,
+          quantity: totalQuantity,
+          notes: `Position creation with ${validEntries.length} entries`,
+          override_cooling_off: overrideCoolingOff
+        })
+      }
+
+      // Step 3: Create position
       await createPosition({
         ticker: ticker.trim().toUpperCase(),
         market,
@@ -95,6 +137,8 @@ export function PositionForm() {
         quantity: '',
         entered_at: new Date().toISOString().slice(0, 16)
       }])
+      setShowCoolingOffWarning(false)
+      setCoolingOffStatus(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '포지션 생성에 실패했습니다')
     } finally {
@@ -102,13 +146,38 @@ export function PositionForm() {
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await checkCoolingOffAndSubmit()
+  }
+
+  const handleCoolingOffOverride = () => {
+    setShowCoolingOffWarning(false)
+    submitPosition(true)
+  }
+
+  const handleCoolingOffCancel = () => {
+    setShowCoolingOffWarning(false)
+    setCoolingOffStatus(null)
+    setIsSubmitting(false)
+  }
+
   const avgPrice = calculateAvgPrice()
 
   return (
-    <div className="card">
-      <h3 className="card-title">새 포지션 생성</h3>
+    <>
+      {showCoolingOffWarning && coolingOffStatus && (
+        <CoolingOffWarning
+          coolingOffStatus={coolingOffStatus}
+          onCancel={handleCoolingOffCancel}
+          onOverride={handleCoolingOffOverride}
+        />
+      )}
       
-      <form onSubmit={handleSubmit}>
+      <div className="card">
+        <h3 className="card-title">새 포지션 생성</h3>
+        
+        <form onSubmit={handleSubmit}>
         <div className="flex gap-4 mb-4">
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
@@ -238,5 +307,6 @@ export function PositionForm() {
         </button>
       </form>
     </div>
+    </>
   )
 }
