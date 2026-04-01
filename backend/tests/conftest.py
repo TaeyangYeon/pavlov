@@ -1,5 +1,8 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID
 
 import pytest
 import pytest_asyncio
@@ -11,6 +14,7 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.domain.position.schemas import PositionEntry, PositionResponse
 
 settings = get_settings()
 
@@ -106,3 +110,51 @@ async def async_client(test_app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client."""
     async with AsyncClient(app=test_app, base_url="http://test") as ac:
         yield ac
+
+
+# Test data fixtures for PnL Calculator
+@pytest.fixture
+def sample_position_response() -> PositionResponse:
+    """Sample position for testing."""
+    entry = PositionEntry(
+        price=Decimal("150.00"),
+        quantity=Decimal("10"),
+        entered_at=datetime(2026, 1, 1, 10, 0)
+    )
+    return PositionResponse(
+        id=UUID("12345678-1234-5678-9012-123456789abc"),
+        ticker="AAPL",
+        market="US",
+        entries=[entry],
+        avg_price=Decimal("150.0000"),
+        status="open",
+        created_at=datetime(2026, 1, 1, 10, 0),
+        updated_at=datetime(2026, 1, 1, 10, 0)
+    )
+
+
+@pytest.fixture
+def multi_entry_position() -> PositionResponse:
+    """Position with multiple entries for testing."""
+    entries = [
+        PositionEntry(
+            price=Decimal("100.00"),
+            quantity=Decimal("5"),
+            entered_at=datetime(2026, 1, 1, 10, 0)
+        ),
+        PositionEntry(
+            price=Decimal("200.00"),
+            quantity=Decimal("5"),
+            entered_at=datetime(2026, 1, 2, 10, 0)
+        )
+    ]
+    return PositionResponse(
+        id=UUID("12345678-1234-5678-9012-123456789abc"),
+        ticker="AAPL",
+        market="US",
+        entries=entries,
+        avg_price=Decimal("150.0000"),  # (100*5 + 200*5) / 10 = 150
+        status="open",
+        created_at=datetime(2026, 1, 1, 10, 0),
+        updated_at=datetime(2026, 1, 2, 10, 0)
+    )

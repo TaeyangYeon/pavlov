@@ -172,3 +172,18 @@ class TestFilterChain:
 
         assert result == []
         assert isinstance(result, list)
+
+    def test_build_default_filter_chain(self):
+        """Test build_default_filter_chain creates FilterChain with expected filters."""
+        from app.domain.filter.chain import build_default_filter_chain
+        from app.domain.filter.volume_filter import VolumeFilter  
+        from app.domain.filter.volatility_filter import VolatilityFilter
+        from app.domain.filter.ma_alignment_filter import MAAlignmentFilter
+        
+        chain = build_default_filter_chain()
+        
+        assert isinstance(chain, FilterChain)
+        assert len(chain._filters) == 3
+        assert isinstance(chain._filters[0], VolumeFilter)
+        assert isinstance(chain._filters[1], VolatilityFilter) 
+        assert isinstance(chain._filters[2], MAAlignmentFilter)

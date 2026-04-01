@@ -336,3 +336,34 @@ class TestTrailingStopEngine:
         assert isinstance(result.high_water_mark, Decimal)
         assert isinstance(result.stop_price, Decimal)
         assert isinstance(result.trail_distance_pct, Decimal)
+
+    def test_zero_current_price_edge_case(self):
+        """Test behavior with zero current_price (edge case)."""
+        config = TrailingStopConfig(mode="percentage", trail_pct=Decimal("10"))
+        
+        result = self.engine.evaluate(
+            current_price=Decimal("0.00"),  # Zero current price
+            high_water_mark=Decimal("100"),
+            avg_price=Decimal("100"),
+            config=config,
+        )
+        
+        # Should not trigger and distance_to_stop_pct should be 0
+        assert result.triggered == True  # 0 <= stop_price (90)
+        assert result.distance_to_stop_pct == Decimal("0.0000")
+
+    def test_zero_hwm_trail_distance_calculation(self):
+        """Test trail distance calculation when HWM is zero."""
+        config = TrailingStopConfig(mode="percentage", trail_pct=Decimal("10"))
+        
+        # Force a scenario where hwm calculation might be zero
+        # This is a bit artificial but tests the edge case
+        result = self.engine.evaluate(
+            current_price=Decimal("0.00"), 
+            high_water_mark=Decimal("0.00"),  # Start with zero HWM
+            avg_price=Decimal("0.00"),       # Zero avg price too
+            config=config,
+        )
+        
+        # When HWM is 0, trail_distance_pct should return 0.0000
+        assert result.trail_distance_pct == Decimal("0.0000")

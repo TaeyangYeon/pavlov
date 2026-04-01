@@ -1,0 +1,10 @@
+ImportError while loading conftest '/Users/geseuteu/pavlov/backend/tests/conftest.py'.
+tests/conftest.py:8: in <module>
+    from app.main import app
+app/main.py:9: in <module>
+    from app.api.v1.router import api_router
+app/api/v1/router.py:7: in <module>
+    from app.api.v1.endpoints import health, positions, strategy, scheduler, users, decisions, behavior
+app/api/v1/endpoints/decisions.py:11: in <module>
+    from app.api.deps import get_db_session
+E   ModuleNotFoundError: No module named 'app.api.deps'

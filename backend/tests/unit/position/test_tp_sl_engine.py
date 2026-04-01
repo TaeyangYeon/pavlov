@@ -364,3 +364,22 @@ class TestTpSlEngine:
         assert decision.sell_ratio.as_tuple().exponent <= -4
         assert decision.current_pnl_pct.as_tuple().exponent <= -4
         assert decision.realized_pnl_estimate.as_tuple().exponent <= -4
+
+    def test_zero_avg_price_returns_zero_pnl_percent(self, engine):
+        """Test that zero avg_price results in zero P&L percentage."""
+        # Edge case: avg_price = 0 should return 0% P&L regardless of current price
+        decision = engine.evaluate(
+            avg_price=Decimal("0.00"),  # Zero avg price
+            current_price=Decimal("100.00"),
+            total_quantity=Decimal("10"),
+            take_profit_levels=[TakeProfitLevel(pct=10.0, sell_ratio=0.5)],
+            stop_loss_levels=[StopLossLevel(pct=-10.0, sell_ratio=1.0)]
+        )
+        
+        # Should hold because P&L% = 0 (no division by zero)
+        assert decision.action == "hold"
+        assert decision.triggered_by == "none"
+        assert decision.current_pnl_pct == Decimal("0.0000")
+        assert decision.sell_quantity == Decimal("0.0000")
+        assert decision.sell_ratio == Decimal("0.0000")
+        assert decision.realized_pnl_estimate == Decimal("0.0000")

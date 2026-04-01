@@ -178,10 +178,15 @@ class TrailingStopConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_config(self):
-        if self.mode == "percentage" and self.trail_pct is None:
-            raise ValueError(
-                "trail_pct required for percentage mode"
-            )
+        if self.mode == "percentage":
+            if self.trail_pct is None:
+                raise ValueError(
+                    "trail_pct required for percentage mode"
+                )
+            if self.trail_pct <= 0:
+                raise ValueError(
+                    "trail_pct must be positive"
+                )
         if self.mode == "atr" and (
             self.atr_multiplier is None
             or self.atr_value is None
