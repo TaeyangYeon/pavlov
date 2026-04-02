@@ -1,9 +1,10 @@
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, Text, func
+from sqlalchemy import Boolean, Date, Text, func, DECIMAL
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as SQLAlchemyUUID
@@ -48,6 +49,13 @@ class AnalysisLog(Base):
 
     # Error message if execution failed
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # AI cost tracking (Step 26: Performance Optimization)
+    ai_cost_usd: Mapped[Decimal | None] = mapped_column(
+        DECIMAL(8, 6), nullable=True
+    )
+    # Estimated cost in USD based on token usage
+    # input_tokens * $3/1M + output_tokens * $15/1M
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

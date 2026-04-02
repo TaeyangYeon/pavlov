@@ -4,9 +4,12 @@ import json
 
 import anthropic
 
+from app.core.config import get_settings
+from app.core.metrics import get_metrics_collector
 from app.domain.ai.client import AIClient
 from app.domain.ai.exceptions import AICallError, AIConfigError, AIResponseParseError
 from app.domain.ai.schemas import AIPromptOutput
+from app.infra.ai.cost_tracker import AICostTracker
 
 # Constants for API configuration
 MODEL = "claude-sonnet-4-5"
@@ -40,6 +43,19 @@ class AnthropicClient(AIClient):
         Call Claude API with retry and parse response.
         Max 3 attempts with exponential backoff.
         """
+        cost_tracker = AICostTracker()
+        metrics = get_metrics_collector()
+        settings = get_settings()
+
+        # Pre-flight: compress prompt
+        compressed = cost_tracker.compress_prompt(prompt)
+        estimated_tokens = cost_tracker.estimate_tokens(compressed)
+        if estimated_tokens > 3000:
+            print(
+                f"[AIClient] Large prompt warning: "
+                f"~{estimated_tokens} tokens estimated"
+            )
+
         last_error = None
 
         for attempt in range(MAX_RETRIES):
@@ -48,8 +64,42 @@ class AnthropicClient(AIClient):
                     model=MODEL,
                     max_tokens=MAX_TOKENS,
                     temperature=TEMPERATURE,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": compressed}],  # use compressed
                 )
+
+                # Track usage
+                usage = response.usage
+                cost = cost_tracker.calculate_cost(
+                    usage.input_tokens,
+                    usage.output_tokens,
+                )
+
+                print(
+                    f"[AIClient] Tokens: "
+                    f"in={usage.input_tokens}, "
+                    f"out={usage.output_tokens}, "
+                    f"cost=${cost:.6f}"
+                )
+
+                # Alert if over threshold
+                if cost_tracker.is_above_alert_threshold(
+                    cost,
+                    settings.ai_cost_alert_threshold_usd
+                ):
+                    print(
+                        f"[AIClient] ⚠️ Cost alert: "
+                        f"${cost:.6f} exceeds "
+                        f"${settings.ai_cost_alert_threshold_usd}"
+                    )
+
+                # Record in metrics
+                metrics.record_ai_call(
+                    market="unknown",  # set by caller if needed
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    cost_usd=cost,
+                )
+
                 return self._parse_response(response)
 
             except RETRYABLE_ERRORS as e:

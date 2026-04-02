@@ -10,6 +10,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.core.config import get_settings
 from app.scheduler.jobs.kr_analysis_job import run_kr_analysis
 from app.scheduler.jobs.us_analysis_job import run_us_analysis
+from app.scheduler.jobs.cache_warmup_job import run_kr_cache_warmup, run_us_cache_warmup
 from app.scheduler.runner import JobRunner
 
 # Timezone
@@ -64,9 +65,42 @@ class SchedulerManager:
             misfire_grace_time=300,  # 5 minutes grace period
         )
 
+        # Cache Pre-warming Jobs (Step 26: Performance Optimization)
+        # KR Cache Warmup: Mon-Fri 15:50 KST (20min before analysis)
+        self.scheduler.add_job(
+            func=self._run_kr_cache_warmup,
+            trigger=CronTrigger(
+                hour=15,
+                minute=50,
+                day_of_week="0-4",  # Mon-Fri
+                timezone=KST,
+            ),
+            id="kr_cache_warmup",
+            name="KR Cache Pre-warming",
+            replace_existing=True,
+            max_instances=1,
+        )
+
+        # US Cache Warmup: Tue-Sat 06:50 KST
+        self.scheduler.add_job(
+            func=self._run_us_cache_warmup,
+            trigger=CronTrigger(
+                hour=6,
+                minute=50,
+                day_of_week="1-5",  # Tue-Sat
+                timezone=KST,
+            ),
+            id="us_cache_warmup",
+            name="US Cache Pre-warming",
+            replace_existing=True,
+            max_instances=1,
+        )
+
         print("✅ Scheduler jobs configured:")
         print("   🇰🇷 KR Analysis: Mon-Fri 16:10 KST")
         print("   🇺🇸 US Analysis: Tue-Sat 07:10 KST")
+        print("   📦 KR Cache Warmup: Mon-Fri 15:50 KST")
+        print("   📦 US Cache Warmup: Tue-Sat 06:50 KST")
 
     async def _run_kr_job(self) -> None:
         """KR job wrapper with isolation."""
@@ -75,6 +109,14 @@ class SchedulerManager:
     async def _run_us_job(self) -> None:
         """US job wrapper with isolation."""
         await self.runner.run("US_ANALYSIS", run_us_analysis)
+
+    async def _run_kr_cache_warmup(self) -> None:
+        """KR cache warmup wrapper."""
+        await self.runner.run("KR_CACHE_WARMUP", run_kr_cache_warmup)
+
+    async def _run_us_cache_warmup(self) -> None:
+        """US cache warmup wrapper."""
+        await self.runner.run("US_CACHE_WARMUP", run_us_cache_warmup)
 
     def start(self) -> None:
         """Start the scheduler."""

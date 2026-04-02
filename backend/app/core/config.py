@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     email_user: str = Field(default="")
     email_password: str = Field(default="")
     email_to: str = Field(default="")
+    
+    # Performance Monitoring (Step 26: Performance Optimization)
+    slow_query_threshold_ms: int = Field(default=100)
+    ai_cost_alert_threshold_usd: float = Field(default=0.10)
 
     # External APIs (optional for future use)
     ALPHA_VANTAGE_API_KEY: str | None = None
@@ -95,6 +99,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "allow"  # Allow extra fields from environment
 
 
 @lru_cache

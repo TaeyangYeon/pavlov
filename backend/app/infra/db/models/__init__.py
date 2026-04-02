@@ -2,6 +2,7 @@
 
 from .analysis_log import AnalysisLog
 from .analysis_log import MarketEnum as AnalysisMarketEnum
+from .backtest_result import BacktestResult
 from .decision_log import DecisionActionEnum, DecisionLog
 from .market_data import MarketData
 from .market_data import MarketEnum as MarketDataMarketEnum
@@ -26,4 +27,5 @@ __all__ = [
     "DecisionActionEnum",
     "Notification",
     "NotificationTypeEnum",
+    "BacktestResult",
 ]

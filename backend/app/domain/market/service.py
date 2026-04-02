@@ -6,6 +6,7 @@ Single responsibility: cache logic only.
 
 from datetime import date, timedelta
 
+from app.core.metrics import MetricsCollector, get_metrics_collector
 from app.domain.market.interfaces import MarketDataPort
 from app.domain.market.validator import MarketDataValidator
 from app.domain.shared.result import Result
@@ -19,10 +20,16 @@ class MarketDataService:
     Depends on abstractions (MarketDataPort, not concrete adapters).
     """
 
-    def __init__(self, adapter: MarketDataPort, repository: MarketDataRepository):
+    def __init__(
+        self,
+        adapter: MarketDataPort,
+        repository: MarketDataRepository,
+        metrics: MetricsCollector | None = None,
+    ):
         self._adapter = adapter
         self._repository = repository
         self._validator = MarketDataValidator()
+        self._metrics = metrics or get_metrics_collector()
 
     async def fetch_and_cache(
         self, ticker: str, market: str, target_date: date
@@ -36,7 +43,12 @@ class MarketDataService:
         # Step 1: Check cache
         cached = await self._repository.get_by_date(ticker, market, target_date)
         if cached is not None:
+            # CACHE HIT
+            self._metrics.record_cache_hit(ticker, market)
             return cached  # HIT: no adapter call
+
+        # CACHE MISS
+        self._metrics.record_cache_miss(ticker, market)
 
         # Step 2: Cache miss — fetch from adapter
         fresh_data = await self._adapter.fetch_daily_ohlcv(ticker, market, target_date)
@@ -61,8 +73,16 @@ class MarketDataService:
         )
         cached_tickers = {d["ticker"] for d in cached_list}
 
+        # Record cache hits for cached tickers
+        for ticker in cached_tickers:
+            self._metrics.record_cache_hit(ticker, market)
+
         # Step 2: Identify misses
         missed_tickers = [t for t in tickers if t not in cached_tickers]
+        
+        # Record cache misses
+        for ticker in missed_tickers:
+            self._metrics.record_cache_miss(ticker, market)
 
         # Step 3: Fetch misses from adapter
         fresh_list = []
