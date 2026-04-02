@@ -1,0 +1,84 @@
+# Development overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+version: '3.8'
+
+services:
+  # ── Development Database (with exposed ports) ────
+  postgres:
+    ports:
+      - "5432:5432"  # Expose for local development tools
+
+  # ── Test Database ────────────────────────────────
+  postgres_test:
+    image: postgres:15
+    platform: linux/amd64
+    container_name: pavlov_postgres_test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pavlov_test
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d pavlov_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - pavlov_network
+
+  # ── Backend with development settings ────────────
+  backend:
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      # Override test database URL for dev
+      - TEST_DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_test:5432/pavlov_test
+    volumes:
+      # Mount source code for live reloading (if needed)
+      - ./backend:/app
+      # Override CMD in dev (uncomment if needed)
+      # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Frontend with development settings ───────────
+  frontend:
+    # For development, you might want to use npm run dev instead
+    # This setup serves the built version through nginx
+    # To use dev server, comment out this service and run locally:
+    # cd frontend && npm run dev
+    profiles:
+      - frontend-prod  # Only start with: docker-compose --profile frontend-prod up
+  
+  # ── Development Frontend (Vite dev server) ───────
+  frontend_dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev  # You can create this for dev-specific setup
+      target: development
+    platform: linux/amd64
+    container_name: pavlov_frontend_dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Vite default dev port
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend
+    networks:
+      - pavlov_network
+    profiles:
+      - frontend-dev
+
+volumes:
+  postgres_test_data:
+    driver: local

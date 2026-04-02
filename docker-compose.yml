@@ -1,54 +1,104 @@
 version: '3.8'
 
 services:
+  # ── Database ─────────────────────────────────────
   postgres:
     image: postgres:15
+    platform: linux/amd64  # Intel Mac compatibility
     container_name: pavlov_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pavlov}
-      POSTGRES_USER: ${POSTGRES_USER:-pavlov_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pavlov_user} -d ${POSTGRES_DB:-pavlov}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - pavlov_network
+    # NOTE: No ports exposed to host (internal only for security)
+
+  # ── Backend API ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    platform: linux/amd64  # Intel Mac compatibility
+    container_name: pavlov_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - APP_ENV=${APP_ENV:-production}
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-true}
+      - KR_TICKERS=${KR_TICKERS}
+      - US_TICKERS=${US_TICKERS}
+      - MAX_RECOVERY_DAYS=${MAX_RECOVERY_DAYS:-3}
+      - COOLING_OFF_MINUTES=${COOLING_OFF_MINUTES:-30}
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_TO=${EMAIL_TO}
+      - SLOW_QUERY_THRESHOLD_MS=${SLOW_QUERY_THRESHOLD_MS:-100}
+      - AI_COST_ALERT_THRESHOLD_USD=${AI_COST_ALERT_THRESHOLD_USD:-0.10}
+      - MARKET_DATA_TIMEOUT_SECONDS=${MARKET_DATA_TIMEOUT_SECONDS:-30}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pavlov_network
+    volumes:
+      - ./backups:/app/backups  # For backup script access
+
+  # ── Frontend ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    platform: linux/amd64  # Intel Mac compatibility
+    container_name: pavlov_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
     networks:
       - pavlov_network
 
-  postgres_test:
-    image: postgres:15
-    container_name: pavlov_postgres_test
+  # ── Database Admin (Optional) ────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    platform: linux/amd64  # Intel Mac compatibility
+    container_name: pavlov_pgadmin
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_TEST_DB:-pavlov_test}
-      POSTGRES_USER: ${POSTGRES_USER:-pavlov_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      PGDATA: /var/lib/postgresql/data/pgdata
+      PGADMIN_DEFAULT_EMAIL: admin@pavlov.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
-      - "5433:5432"
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pavlov_user} -d ${POSTGRES_TEST_DB:-pavlov_test}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - pavlov_network
+    profiles:
+      - admin  # Only start with: docker-compose --profile admin up
 
 volumes:
   postgres_data:
-    driver: local
-  postgres_test_data:
     driver: local
 
 networks:
