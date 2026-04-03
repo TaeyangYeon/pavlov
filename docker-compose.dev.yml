@@ -82,3 +82,6 @@ services:
 volumes:
   postgres_test_data:
     driver: local
+
+networks:
+  pavlov_network:

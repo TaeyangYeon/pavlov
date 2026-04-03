@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files first (layer caching)
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Install dependencies to isolated location
 RUN pip install --no-cache-dir --prefix=/install \

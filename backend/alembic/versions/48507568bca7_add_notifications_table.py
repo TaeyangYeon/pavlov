@@ -21,18 +21,17 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Create notifications table."""
-    # Create notification_type_enum
-    notification_type_enum = postgresql.ENUM(
-        'strategy_change', 'tp_sl_alert', 'impulse_warning', 'system',
-        name='notification_type_enum'
-    )
-    notification_type_enum.create(op.get_bind())
+    # Create enum type safely
+    op.execute("DO $$ BEGIN "
+               "CREATE TYPE notification_type_enum AS ENUM ('strategy_change', 'tp_sl_alert', 'impulse_warning', 'system'); "
+               "EXCEPTION WHEN duplicate_object THEN null; "
+               "END $$;")
     
     # Create notifications table
     op.create_table('notifications',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False, default=sa.text('gen_random_uuid()')),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('type', notification_type_enum, nullable=False),
+        sa.Column('type', sa.Text(), nullable=False),
         sa.Column('title', sa.String(length=100), nullable=False),
         sa.Column('body', sa.String(length=500), nullable=False),
         sa.Column('ticker', sa.String(length=10), nullable=True),
@@ -47,6 +46,9 @@ def upgrade() -> None:
     op.create_index(op.f('ix_notifications_type'), 'notifications', ['type'], unique=False)
     op.create_index(op.f('ix_notifications_ticker'), 'notifications', ['ticker'], unique=False)
     op.create_index(op.f('ix_notifications_is_read'), 'notifications', ['is_read'], unique=False)
+    
+    # Convert type column to use enum
+    op.execute("ALTER TABLE notifications ALTER COLUMN type TYPE notification_type_enum USING type::notification_type_enum")
 
 
 def downgrade() -> None:
@@ -56,6 +58,5 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_notifications_type'), table_name='notifications')
     op.drop_table('notifications')
     
-    # Drop notification_type_enum
-    notification_type_enum = postgresql.ENUM(name='notification_type_enum')
-    notification_type_enum.drop(op.get_bind())
+    # Drop notification_type_enum using raw SQL
+    op.execute("DROP TYPE IF EXISTS notification_type_enum")

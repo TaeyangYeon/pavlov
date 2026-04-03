@@ -1,8 +1,8 @@
-version: '3.8'
 
 services:
   # ── Database ─────────────────────────────────────
   postgres:
+    env_file: .env
     image: postgres:15
     platform: linux/amd64  # Intel Mac compatibility
     container_name: pavlov_postgres
@@ -26,6 +26,7 @@ services:
 
   # ── Backend API ──────────────────────────────────
   backend:
+    env_file: .env
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -64,6 +65,7 @@ services:
 
   # ── Frontend ─────────────────────────────────────
   frontend:
+    env_file: .env
     build:
       context: ./frontend
       dockerfile: Dockerfile
